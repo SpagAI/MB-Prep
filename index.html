@@ -61,7 +61,20 @@
 
     <div class="card">
       <h2>4. Number of slides</h2>
+      <div class="seg" role="radiogroup" aria-label="How to count slides">
+        <button type="button" class="seg-btn" data-countmode="total" role="radio">Same total</button>
+        <button type="button" class="seg-btn" data-countmode="per" role="radio">Choose per practical</button>
+      </div>
       <div id="count-buttons" class="pill-row"></div>
+      <div id="per-course" class="per-course" hidden></div>
+      <div id="order-row" class="order-row">
+        <h3>Order</h3>
+        <div class="seg" role="radiogroup" aria-label="Order of practicals">
+          <button type="button" class="seg-btn" data-order="mixed" role="radio">🔀 Mix practicals together</button>
+          <button type="button" class="seg-btn" data-order="blocks" role="radio">One practical at a time</button>
+        </div>
+        <p id="order-note" class="note"></p>
+      </div>
     </div>
 
     <div class="start-bar">
@@ -103,6 +116,7 @@
       <div id="stage" class="stage">
         <img id="slide-img" alt="" draggable="false">
         <div id="img-loading" class="img-msg">Loading…</div>
+        <div id="block-toast" class="block-toast" hidden></div>
         <div id="pause-overlay" class="pause-overlay" hidden>
           <div>Paused</div>
           <button type="button" id="resume-btn" class="primary">Resume</button>

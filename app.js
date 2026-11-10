@@ -48,10 +48,11 @@
   }
 
   /** Re-orders a shuffled list so the same course/category never appears twice in a row when avoidable. */
-  function spreadByCategory(items) {
+  function spreadByCategory(items, keyFn) {
+    keyFn = keyFn || ((it) => catKey(it.course, it.category));
     const groups = new Map();
     for (const it of items) {
-      const k = catKey(it.course, it.category);
+      const k = keyFn(it);
       if (!groups.has(k)) groups.set(k, []);
       groups.get(k).push(it);
     }
@@ -117,6 +118,9 @@
     count: 20,
     beep: true,
     studyShuffle: false,
+    countMode: 'total', // 'total' = one number for everything, 'per' = a number for each practical
+    perCourse: {}, // course name -> number | 'all'
+    order: 'mixed', // 'mixed' = practicals shuffled together, 'blocks' = one practical after another
     answerBoxes: false, // Distinction: off = write answers on paper (default, like the real exam)
   };
   const settings = Object.assign({}, defaults, load(KEY_SETTINGS, {}));
@@ -127,6 +131,10 @@
   if (!['study', 'easy', 'distinction'].includes(settings.mode)) settings.mode = 'easy';
   if (!TIMER_STEPS.includes(settings.timer)) settings.timer = nearestStep(settings.timer);
   if (!COUNT_OPTIONS.includes(settings.count)) settings.count = 20;
+  if (!['total', 'per'].includes(settings.countMode)) settings.countMode = 'total';
+  if (!['mixed', 'blocks'].includes(settings.order)) settings.order = 'mixed';
+  if (!settings.perCourse || typeof settings.perCourse !== 'object') settings.perCourse = {};
+  const PER_DEFAULT = 10;
 
   function nearestStep(v) {
     v = Number(v) || 0;
@@ -259,7 +267,11 @@
   }
 
   function renderCounts() {
+    for (const b of $$('[data-countmode]')) b.classList.toggle('on', b.dataset.countmode === settings.countMode);
+    for (const b of $$('[data-order]')) b.classList.toggle('on', b.dataset.order === settings.order);
+    const per = settings.countMode === 'per';
     const wrap = $('#count-buttons');
+    wrap.hidden = per;
     wrap.innerHTML = '';
     for (const c of COUNT_OPTIONS) {
       const b = document.createElement('button');
@@ -269,6 +281,85 @@
       b.addEventListener('click', () => { settings.count = c; persistSettings(); renderCounts(); renderSummary(); });
       wrap.appendChild(b);
     }
+    // One row per selected practical
+    const pc = $('#per-course');
+    pc.hidden = !per;
+    pc.innerHTML = '';
+    const groups = usableByCourse();
+    if (per) {
+      if (!groups.size) pc.innerHTML = '<p class="note">Choose courses above first.</p>';
+      for (const [course, list] of groups) {
+        const cur = perCourseValue(course);
+        const row = document.createElement('div');
+        row.className = 'pc-row';
+        row.style.setProperty('--c', courseColor(course));
+        row.innerHTML = `<span class="pc-name">${esc(course)}<small>${plural(list.length, 'image')} available</small></span>` +
+          [5, 10, 20].map((n) => `<button type="button" class="pill ${cur === n ? 'on' : ''}" data-n="${n}" ${n > list.length ? 'disabled' : ''}>${n}</button>`).join('') +
+          `<button type="button" class="pill ${cur === 'all' ? 'on' : ''}" data-n="all">All</button>
+          <input type="number" min="0" max="${list.length}" step="1" value="${cur === 'all' ? list.length : Math.min(cur, list.length)}" aria-label="Slides from ${esc(course)}">`;
+        row.addEventListener('click', (e) => {
+          const b = e.target.closest('button[data-n]');
+          if (!b) return;
+          settings.perCourse[course] = b.dataset.n === 'all' ? 'all' : +b.dataset.n;
+          persistSettings(); renderCounts(); renderSummary();
+        });
+        $('input', row).addEventListener('change', (e) => {
+          let v = Math.round(Number(e.target.value));
+          if (!isFinite(v) || v < 0) v = 0;
+          settings.perCourse[course] = v >= list.length ? 'all' : v;
+          persistSettings(); renderCounts(); renderSummary();
+        });
+        pc.appendChild(row);
+      }
+    }
+    // Order only matters with more than one practical
+    const multi = groups.size > 1;
+    $('#order-row').hidden = !multi || (settings.mode === 'study' && !settings.studyShuffle);
+    $('#order-note').textContent = settings.order === 'mixed'
+      ? 'Slides from all the selected practicals are shuffled together, so the session jumps between them.'
+      : 'Each practical is done as its own block (in the order above), shuffled inside the block.';
+  }
+
+  function perCourseValue(course) {
+    const v = settings.perCourse[course];
+    return v === 'all' || (typeof v === 'number' && v >= 0) ? v : PER_DEFAULT;
+  }
+
+  /** Usable items (exam modes skip unlabelled ones) grouped by course, in course order. */
+  function usableByCourse(items) {
+    items = items || selectedItems();
+    const exam = settings.mode !== 'study';
+    const map = new Map();
+    for (const c of COURSES) {
+      const list = items.filter((i) => i.course === c.name && (!exam || !i.unlabelled));
+      if (list.length) map.set(c.name, list);
+    }
+    return map;
+  }
+
+  /** How many slides to take from each practical. Same total = spread evenly across practicals. */
+  function planCounts(groups, cfg) {
+    const plan = new Map();
+    if (cfg.countMode === 'per') {
+      for (const [course, list] of groups) {
+        const v = cfg.perCourse[course];
+        const n = v === 'all' ? list.length : Math.min(typeof v === 'number' ? v : PER_DEFAULT, list.length);
+        if (n > 0) plan.set(course, n);
+      }
+      return plan;
+    }
+    const avail = [...groups.values()].reduce((s, l) => s + l.length, 0);
+    let left = cfg.count === 'all' ? avail : Math.min(cfg.count, avail);
+    for (const c of groups.keys()) plan.set(c, 0);
+    while (left > 0) { // round-robin: one from each practical in turn until the total is reached
+      let progressed = false;
+      for (const [c, list] of groups) {
+        if (left > 0 && plan.get(c) < list.length) { plan.set(c, plan.get(c) + 1); left--; progressed = true; }
+      }
+      if (!progressed) break;
+    }
+    for (const [c, n] of [...plan]) if (!n) plan.delete(c);
+    return plan;
   }
 
   /** Items matching the current selection. */
@@ -295,6 +386,7 @@
   }
 
   function renderSummary() {
+    renderCounts(); // per-practical rows depend on the course/category selection and mode
     const items = selectedItems();
     const exam = settings.mode !== 'study';
     const usable = exam ? items.filter((i) => !i.unlabelled) : items;
@@ -310,9 +402,20 @@
       start.disabled = true;
       return;
     }
-    const n = settings.count === 'all' ? usable.length : Math.min(settings.count, usable.length);
+    const plan = planCounts(usableByCourse(items), settings);
+    const n = [...plan.values()].reduce((a, b) => a + b, 0);
+    if (!n) {
+      el.innerHTML = '<span class="warn-text">Set at least one practical to more than 0 slides.</span>';
+      start.disabled = true;
+      return;
+    }
     let txt = `<strong>${plural(usable.length, 'image')}</strong> from ${esc(selectionText(usable))}`;
-    txt += ` · <strong>${n}</strong> slide${n === 1 ? '' : 's'} · ${MODE_NAMES[settings.mode]} · ${settings.timer ? fmtTime(settings.timer) + ' per slide' : 'no timer'}`;
+    txt += ` · <strong>${n}</strong> slide${n === 1 ? '' : 's'}`;
+    if (plan.size > 1) {
+      txt += ` (${[...plan].map(([c, k]) => `${esc(c)} ${k}`).join(', ')})`;
+      if (!(settings.mode === 'study' && !settings.studyShuffle)) txt += settings.order === 'mixed' ? ' · practicals mixed' : ' · one practical at a time';
+    }
+    txt += ` · ${MODE_NAMES[settings.mode]} · ${settings.timer ? fmtTime(settings.timer) + ' per slide' : 'no timer'}`;
     const skipped = items.length - usable.length;
     if (skipped) txt += ` <span class="note">(${skipped} unlabelled skipped)</span>`;
     el.innerHTML = txt;
@@ -414,11 +517,10 @@
     if (config.itemIds) {
       pool = config.itemIds.map((id) => ITEMS[id]).filter(Boolean);
     } else {
-      pool = selectedItems();
-      if (config.mode !== 'study') pool = pool.filter((i) => !i.unlabelled);
-      shuffle(pool);
-      const n = config.count === 'all' ? pool.length : Math.min(config.count, pool.length);
-      pool = pool.slice(0, n);
+      const groups = usableByCourse();
+      const plan = planCounts(groups, config);
+      pool = [];
+      for (const [course, n] of plan) pool = pool.concat(shuffle(groups.get(course).slice()).slice(0, n));
     }
     if (!pool.length) return;
     let ordered;
@@ -427,8 +529,15 @@
       ordered = pool.slice().sort((a, b) => rank(a.course) - rank(b.course) || a.category.localeCompare(b.category) ||
         String(a.sub || '').localeCompare(String(b.sub || '')) || a.label.localeCompare(b.label));
     } else {
-      ordered = spreadByCategory(shuffle(pool.slice()));
+      // Each practical: shuffled, no two slides from the same category in a row.
+      const rank = (c) => COURSES.findIndex((x) => x.name === c);
+      const courses = [...new Set(pool.map((i) => i.course))].sort((a, b) => rank(a) - rank(b));
+      const blocks = courses.map((c) => spreadByCategory(shuffle(pool.filter((i) => i.course === c))));
+      ordered = config.order === 'blocks'
+        ? [].concat(...blocks) // one practical after another
+        : spreadByCategory([].concat(...blocks), (it) => it.course); // interleave practicals, keeping each block's order
     }
+    S.blockCount = new Set(ordered.map((i) => i.course)).size;
     S.slides = ordered.map((item) => ({ item, qs: buildQuestions(item, config.mode), ans: [], hints: false }));
     S.allSlides = config.mode === 'study' ? S.slides.slice() : null;
     S.idx = 0;
@@ -446,6 +555,9 @@
       timer: settings.mode === 'distinction' && !settings.timer ? DISTINCTION_DEFAULT : settings.timer,
       beep: settings.beep,
       count: settings.count,
+      countMode: settings.countMode,
+      perCourse: Object.assign({}, settings.perCourse),
+      order: settings.order,
       studyShuffle: settings.studyShuffle,
       answerBoxes: !!settings.answerBoxes,
       selection: selectionText(selectedItems()),
@@ -502,6 +614,7 @@
     const exam = m !== 'study';
 
     $('#progress').textContent = `Slide ${i + 1} / ${S.slides.length}`;
+    showBlockToast(i);
     const tag = $('#course-tag');
     tag.textContent = exam ? it.course : `${it.course} › ${catName(it.category)}`;
     tag.style.setProperty('--c', courseColor(it.course));
@@ -538,6 +651,23 @@
     $('#hint-btn').disabled = !slide.qs.some((q) => q.hint);
     $('#hint-btn').textContent = slide.hints ? '💡 Hide hint' : '💡 Hint';
     startTimer();
+  }
+
+  let toastTimer = null;
+  function showBlockToast(i) {
+    const toast = $('#block-toast');
+    const cur = S.slides[i].item.course;
+    const prevCourse = i > 0 ? S.slides[i - 1].item.course : null;
+    if (S.config.order !== 'blocks' || S.blockCount < 2 || cur === prevCourse || S.config.mode === 'study') {
+      if (i === 0 || cur !== prevCourse) toast.hidden = true;
+      return;
+    }
+    const n = [...new Set(S.slides.slice(0, i + 1).map((s) => s.item.course))].length;
+    toast.textContent = `Practical ${n} of ${S.blockCount}: ${cur}`;
+    toast.style.setProperty('--c', courseColor(cur));
+    toast.hidden = false;
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => { toast.hidden = true; }, 3000);
   }
 
   function renderQuestions() {
@@ -1079,7 +1209,13 @@
     persistSettings(); renderTimer(); renderSummary();
   });
   $('#beep-toggle').addEventListener('change', (e) => { settings.beep = e.target.checked; persistSettings(); });
-  $('#study-shuffle').addEventListener('change', (e) => { settings.studyShuffle = e.target.checked; persistSettings(); });
+  $('#study-shuffle').addEventListener('change', (e) => { settings.studyShuffle = e.target.checked; persistSettings(); renderSummary(); });
+  $$('[data-countmode]').forEach((b) => b.addEventListener('click', () => {
+    settings.countMode = b.dataset.countmode; persistSettings(); renderCounts(); renderSummary();
+  }));
+  $$('[data-order]').forEach((b) => b.addEventListener('click', () => {
+    settings.order = b.dataset.order; persistSettings(); renderCounts(); renderSummary();
+  }));
   $('#answer-boxes').addEventListener('change', (e) => { settings.answerBoxes = e.target.checked; persistSettings(); });
   $('#review-pics').addEventListener('change', (e) => { $('#review').classList.toggle('no-pics', !e.target.checked); });
   $('#history-clear').addEventListener('click', () => {

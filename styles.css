@@ -347,3 +347,33 @@ body.mode-distinction .dist-only { display: flex; flex-wrap: wrap; }
 .r-q .row .ans { font-weight: 700; color: var(--ok); }
 #review.no-pics .review-item { grid-template-columns: 1fr; padding: 10px 12px; }
 #review.no-pics .review-item > .pic { display: none; }
+
+/* Number of slides: total vs per practical, and order */
+.seg { display: flex; flex-wrap: wrap; gap: 0; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; width: fit-content; max-width: 100%; margin-bottom: 8px; }
+.seg-btn { border: 0; border-radius: 0; background: #fff; padding: 8px 14px; min-height: 40px; font-size: .92rem; }
+.seg-btn + .seg-btn { border-left: 1px solid var(--line); }
+.seg-btn.on { background: var(--accent); color: #fff; font-weight: 600; }
+.per-course { display: grid; gap: 8px; margin-top: 4px; }
+.pc-row {
+  --c: var(--accent);
+  display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px;
+  border-left: 4px solid var(--c); padding: 6px 0 6px 10px; background: #fafbfc; border-radius: 6px;
+}
+.pc-name { font-weight: 700; color: var(--c); min-width: 150px; }
+.pc-name small { display: block; font-weight: 500; color: var(--muted); font-size: .8rem; }
+.pc-row .pill { min-height: 36px; padding: 4px 12px; }
+.pc-row .pill.on { background: var(--c); border-color: var(--c); }
+.pc-row input[type=number] { width: 72px; min-height: 36px; padding: 4px 8px; border: 1px solid var(--line); border-radius: 8px; font: inherit; }
+.order-row { margin-top: 12px; }
+.order-row h3 { font-size: .95rem; margin: 0 0 6px; }
+
+/* "Practical 2 of 4" banner when doing practicals one at a time */
+.block-toast {
+  position: absolute; left: 50%; top: 14px; transform: translateX(-50%); z-index: 2; pointer-events: none;
+  background: rgba(15,23,42,.92); color: #fff; border: 2px solid var(--c, #2563eb);
+  padding: 8px 18px; border-radius: 999px; font-weight: 700; font-size: clamp(.95rem, 2.2vw, 1.3rem); white-space: nowrap;
+}
+@media (max-width: 600px) {
+  .pc-name { flex-basis: 100%; min-width: 0; }
+  .summary { font-size: .88rem; }
+}

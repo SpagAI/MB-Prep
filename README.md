@@ -25,6 +25,14 @@ Just double-click `index.html`. You don't need a server or internet.
 Prefer typing? Tick **"Type answers on screen"** on the home screen (or press the ✎ button during the exam). An answer box then appears under each question, and what you typed is shown next to the correct answer at the end.
 The answer key has a **Show pictures** switch. Turn it off for a compact list that's quick to check against your notes.
 
+**Number of slides:**
+- **Same total**: e.g. 20, shared evenly across the practicals you picked (all four → 5 each).
+- **Choose per practical**: e.g. Histopathology 10, Chem Path 5, MMP 8, Haematology 7. Set a practical to 0 to leave it out.
+
+**Order** (when more than one practical is picked):
+- **🔀 Mix practicals together**: one round that cuts across all of them, and the same practical never shows twice in a row (when that's possible).
+- **One practical at a time**: Histopathology first, then Chem Path, MMP, Haematology, each shuffled inside its block. A banner shows "Practical 2 of 4: Chemical Pathology" when the next one starts.
+
 Timer: Off (use Next), or anything from 5 s to 30 min. It turns amber at 25% left and red at 10 s, can beep, and moves on by itself at 0.
 Distinction mode always has a timer (1 min by default).
 
