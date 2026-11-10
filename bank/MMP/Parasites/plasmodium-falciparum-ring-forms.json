@@ -1,0 +1,14 @@
+{
+  "type": "photomicrograph",
+  "questions": [
+    {
+      "q": "Identify the parasite and stage",
+      "a": "Plasmodium falciparum ring forms",
+      "hint": "Thin blood film, Giemsa"
+    },
+    {
+      "q": "Name the vector",
+      "a": "Female Anopheles mosquito"
+    }
+  ]
+}

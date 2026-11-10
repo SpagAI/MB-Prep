@@ -1,0 +1,4 @@
+# For extract.py (Step 1).  Install with:  pip install -r requirements.txt
+pymupdf
+pillow
+pillow-heif   # optional: only needed for iPhone .heic photos

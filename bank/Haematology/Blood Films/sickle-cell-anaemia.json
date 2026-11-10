@@ -1,0 +1,18 @@
+{
+  "type": "slide",
+  "questions": [
+    {
+      "q": "Identify the blood film",
+      "a": "Sickle cell anaemia"
+    },
+    {
+      "q": "Name two other cells you may see on this film",
+      "a": "Target cells; Howell-Jolly bodies (nucleated red cells)",
+      "hint": "Hyposplenism"
+    },
+    {
+      "q": "What is the confirmatory test?",
+      "a": "Haemoglobin electrophoresis (HbSS)"
+    }
+  ]
+}

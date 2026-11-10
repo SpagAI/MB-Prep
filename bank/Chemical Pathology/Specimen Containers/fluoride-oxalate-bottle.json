@@ -1,0 +1,25 @@
+{
+  "label": "Fluoride oxalate bottle",
+  "questions": [
+    {
+      "q": "Identify this item",
+      "a": "Fluoride oxalate bottle",
+      "hint": "Grey top"
+    },
+    {
+      "q": "What is it used for?",
+      "a": "Blood glucose (and lactate) estimation",
+      "hint": "Fluoride stops glycolysis"
+    },
+    {
+      "q": "What is the role of each additive?",
+      "a": "Fluoride inhibits glycolysis; oxalate is the anticoagulant",
+      "options": [
+        "Fluoride inhibits glycolysis; oxalate is the anticoagulant",
+        "Fluoride is the anticoagulant; oxalate inhibits glycolysis",
+        "Both are anticoagulants",
+        "Both preserve proteins"
+      ]
+    }
+  ]
+}

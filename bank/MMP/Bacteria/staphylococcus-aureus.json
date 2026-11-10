@@ -1,0 +1,19 @@
+{
+  "type": "photomicrograph",
+  "label": "Staphylococcus aureus (Gram stain)",
+  "questions": [
+    {
+      "q": "Identify the organism",
+      "a": "Staphylococcus aureus (Gram stain)"
+    },
+    {
+      "q": "Describe the Gram reaction and arrangement",
+      "a": "Gram-positive cocci in grape-like clusters",
+      "hint": "Purple = ?"
+    },
+    {
+      "q": "Name one test that separates it from other staphylococci",
+      "a": "Coagulase test (positive)"
+    }
+  ]
+}

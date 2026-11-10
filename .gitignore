@@ -1,0 +1,12 @@
+# Your study materials can be large and private — they stay on your computer.
+/source/**
+!/source/*/
+!/source/*/.gitkeep
+
+# Working files made by extract.py
+/extract-rejects/
+/extract-trash/
+/.extract-cache.json
+__pycache__/
+.DS_Store
+Thumbs.db

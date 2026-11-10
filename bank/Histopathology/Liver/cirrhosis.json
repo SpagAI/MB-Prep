@@ -1,0 +1,21 @@
+{
+  "type": "pot",
+  "label": "Cirrhosis of the liver",
+  "questions": [
+    {
+      "q": "Identify the specimen",
+      "a": "Cirrhosis of the liver",
+      "hint": "Diffuse nodules replacing normal liver"
+    },
+    {
+      "q": "Give two gross features",
+      "a": "Nodular surface; shrunken liver with fibrous bands",
+      "hint": "Look at the surface and the size"
+    },
+    {
+      "q": "Name two causes common in Nigeria",
+      "a": "Chronic hepatitis B; chronic hepatitis C (also alcohol)",
+      "hint": "Think viruses"
+    }
+  ]
+}

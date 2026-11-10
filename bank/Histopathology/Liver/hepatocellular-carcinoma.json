@@ -1,0 +1,21 @@
+{
+  "type": "slide",
+  "label": "Hepatocellular carcinoma",
+  "questions": [
+    {
+      "q": "Identify the specimen",
+      "a": "Hepatocellular carcinoma",
+      "hint": "Malignant tumour of the liver's main parenchymal cell"
+    },
+    {
+      "q": "Give two histological features",
+      "a": "Trabecular pattern of atypical hepatocytes; bile production",
+      "hint": "Think architecture + what liver cells secrete"
+    },
+    {
+      "q": "Name one risk factor",
+      "a": "Chronic hepatitis B infection",
+      "hint": "Very common in Nigeria"
+    }
+  ]
+}

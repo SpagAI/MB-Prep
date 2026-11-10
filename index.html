@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#1e293b">
+  <title>Practical Projector</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body class="screen-home">
+
+  <!-- ============ HOME / SETUP ============ -->
+  <section id="home" class="screen" aria-labelledby="home-title">
+    <header class="home-head">
+      <h1 id="home-title">Practical Projector</h1>
+      <p class="tagline">Spotting exam simulator · <span id="bank-total"></span></p>
+    </header>
+
+    <div id="bank-missing" class="card warn" hidden>
+      <strong>No picture bank found.</strong>
+      Put images in <code>bank/&lt;Course&gt;/&lt;Category&gt;/</code>, then run <code>node build-bank.js</code> and reload this page.
+    </div>
+
+    <div class="card">
+      <div class="card-head">
+        <h2>1. Courses</h2>
+        <button type="button" class="link-btn" id="courses-all">Select all</button>
+      </div>
+      <div id="course-buttons" class="course-grid"></div>
+      <div id="category-panels"></div>
+    </div>
+
+    <div class="card">
+      <h2>2. Mode</h2>
+      <div class="mode-grid" role="radiogroup" aria-label="Mode">
+        <button type="button" class="mode-btn" data-mode="study" role="radio">
+          <span class="mode-name">Study</span>
+          <span class="mode-desc">Labels and answers visible. Browse freely.</span>
+        </button>
+        <button type="button" class="mode-btn" data-mode="easy" role="radio">
+          <span class="mode-name">Easy Money</span>
+          <span class="mode-desc">4 options, hints, go back allowed.</span>
+        </button>
+        <button type="button" class="mode-btn" data-mode="distinction" role="radio">
+          <span class="mode-name">Distinction</span>
+          <span class="mode-desc">Real exam: image, questions, countdown. No going back.</span>
+        </button>
+      </div>
+      <label class="check study-only"><input type="checkbox" id="study-shuffle"> Shuffle in Study mode</label>
+    </div>
+
+    <div class="card">
+      <h2>3. Timer per slide: <span id="timer-readout" class="readout"></span></h2>
+      <input type="range" id="timer-slider" min="0" max="1" step="1" aria-label="Timer per slide">
+      <div id="timer-presets" class="pill-row"></div>
+      <p id="timer-note" class="note"></p>
+      <label class="check"><input type="checkbox" id="beep-toggle"> Beep near the end</label>
+    </div>
+
+    <div class="card">
+      <h2>4. Number of slides</h2>
+      <div id="count-buttons" class="pill-row"></div>
+    </div>
+
+    <div class="start-bar">
+      <p id="summary" class="summary" aria-live="polite"></p>
+      <button type="button" id="start-btn" class="primary big">Start</button>
+    </div>
+
+    <div class="card">
+      <div class="card-head">
+        <h2>Past sessions</h2>
+        <button type="button" class="link-btn" id="history-clear">Clear</button>
+      </div>
+      <div id="history"></div>
+    </div>
+
+    <footer class="home-foot">
+      Shortcuts: → next · ← previous · 1–4 pick option · H hint · F fullscreen · Space pause
+    </footer>
+  </section>
+
+  <!-- ============ EXAM / DISPLAY ============ -->
+  <section id="exam" class="screen" hidden>
+    <div class="exam-top">
+      <div class="exam-left">
+        <button type="button" id="end-btn" class="ghost" title="End session">✕<span class="end-txt"> End</span></button>
+        <span id="progress" class="progress"></span>
+        <span id="course-tag" class="course-tag"></span>
+      </div>
+      <div id="timer" class="timer" aria-live="off"></div>
+      <div class="exam-right">
+        <select id="study-filter" class="ghost-select" aria-label="Filter by category" hidden></select>
+        <button type="button" id="pause-btn" class="ghost" title="Pause (Space)">❚❚</button>
+        <button type="button" id="fs-btn" class="ghost" title="Fullscreen (F)">⛶</button>
+      </div>
+    </div>
+
+    <div class="exam-body">
+      <div id="stage" class="stage">
+        <img id="slide-img" alt="" draggable="false">
+        <div id="img-loading" class="img-msg">Loading…</div>
+        <div id="pause-overlay" class="pause-overlay" hidden>
+          <div>Paused</div>
+          <button type="button" id="resume-btn" class="primary">Resume</button>
+        </div>
+        <div class="zoom-ctrls">
+          <button type="button" data-zoom="in" title="Zoom in">＋</button>
+          <button type="button" data-zoom="out" title="Zoom out">－</button>
+          <button type="button" data-zoom="reset" title="Fit">⤢</button>
+        </div>
+      </div>
+
+      <aside id="panel" class="panel">
+        <div id="study-label" class="study-label" hidden></div>
+        <ol id="questions" class="questions"></ol>
+        <div id="study-notes" class="study-notes" hidden></div>
+      </aside>
+    </div>
+
+    <div class="exam-bottom">
+      <button type="button" id="prev-btn" class="nav">← Previous</button>
+      <button type="button" id="hint-btn" class="nav hint">💡 Hint</button>
+      <button type="button" id="next-btn" class="nav primary">Next →</button>
+    </div>
+  </section>
+
+  <!-- ============ RESULTS / REVIEW ============ -->
+  <section id="results" class="screen" hidden>
+    <header class="results-head">
+      <h1 id="results-title">Results</h1>
+      <div id="score-big" class="score-big"></div>
+      <p id="score-sub" class="note"></p>
+      <div class="results-actions">
+        <button type="button" id="retry-wrong" class="primary">Retry wrong ones only</button>
+        <button type="button" id="retry-all">Same settings again</button>
+        <button type="button" id="go-home">Home</button>
+      </div>
+    </header>
+    <div id="breakdown"></div>
+    <h2 class="review-title">Review</h2>
+    <p id="review-help" class="note"></p>
+    <div id="review"></div>
+  </section>
+
+  <!-- Lightbox for review images -->
+  <div id="lightbox" class="lightbox" hidden><img alt="" id="lightbox-img"></div>
+
+  <script src="bank.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
