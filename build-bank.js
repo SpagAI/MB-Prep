@@ -134,6 +134,7 @@ function walk(dir, parts, items, warnings) {
     if (sub) item.sub = sub;
     if (type) item.type = type;
     if (unlabelled) item.unlabelled = true;
+    if (side.studyOnly === true) item.studyOnly = true; // e.g. the answer is written on the photo
     if (Array.isArray(side.notes) && side.notes.length) item.notes = side.notes.map(String).filter(Boolean).slice(0, 12);
     else if (typeof side.notes === 'string' && side.notes.trim()) item.notes = [side.notes.trim()];
     items.push(item);
@@ -187,6 +188,8 @@ function main() {
   }
   const unl = items.filter((i) => i.unlabelled).length;
   if (unl) console.log(`  ${unl} unlabelled image(s): shown in Study mode only. Rename them to use them in exams.`);
+  const so = items.filter((i) => i.studyOnly).length;
+  if (so) console.log(`  ${so} image(s) marked "studyOnly" (answer visible in the picture): Study mode only.`);
   if (warnings.length) {
     console.log(`\n${warnings.length} warning(s):`);
     warnings.slice(0, 50).forEach((w) => console.log('  - ' + w));

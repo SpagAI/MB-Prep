@@ -325,13 +325,16 @@
     return v === 'all' || (typeof v === 'number' && v >= 0) ? v : PER_DEFAULT;
   }
 
-  /** Usable items (exam modes skip unlabelled ones) grouped by course, in course order. */
+  /** Exam modes skip unlabelled pictures and ones marked studyOnly (answer visible in the photo). */
+  const examUsable = (i) => !i.unlabelled && !i.studyOnly;
+
+  /** Usable items grouped by course, in course order. */
   function usableByCourse(items) {
     items = items || selectedItems();
     const exam = settings.mode !== 'study';
     const map = new Map();
     for (const c of COURSES) {
-      const list = items.filter((i) => i.course === c.name && (!exam || !i.unlabelled));
+      const list = items.filter((i) => i.course === c.name && (!exam || examUsable(i)));
       if (list.length) map.set(c.name, list);
     }
     return map;
@@ -389,7 +392,7 @@
     renderCounts(); // per-practical rows depend on the course/category selection and mode
     const items = selectedItems();
     const exam = settings.mode !== 'study';
-    const usable = exam ? items.filter((i) => !i.unlabelled) : items;
+    const usable = exam ? items.filter(examUsable) : items;
     const el = $('#summary');
     const start = $('#start-btn');
     if (!items.length) {
@@ -398,7 +401,7 @@
       return;
     }
     if (!usable.length) {
-      el.innerHTML = '<span class="warn-text">The selected images are all unlabelled. Use Study mode, or rename them first.</span>';
+      el.innerHTML = '<span class="warn-text">The selected images are all unlabelled or Study-only. Use Study mode, or rename them first.</span>';
       start.disabled = true;
       return;
     }
@@ -417,7 +420,7 @@
     }
     txt += ` · ${MODE_NAMES[settings.mode]} · ${settings.timer ? fmtTime(settings.timer) + ' per slide' : 'no timer'}`;
     const skipped = items.length - usable.length;
-    if (skipped) txt += ` <span class="note">(${skipped} unlabelled skipped)</span>`;
+    if (skipped) txt += ` <span class="note">(${skipped} Study-only or unlabelled picture${skipped === 1 ? '' : 's'} left out)</span>`;
     el.innerHTML = txt;
     start.disabled = false;
   }

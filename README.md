@@ -159,6 +159,7 @@ For more, put a JSON file with the **same name** next to the picture:
 - `type`: `slide`, `pot` or `photomicrograph` (optional).
 - `label`: optional; overrides the file name.
 - `hint`: optional; shown when you press Hint in Easy Money.
+- `"studyOnly": true`: optional; for a photo where the answer is written on the picture (an answer card, a typed caption). It then appears in Study mode only, never in an exam.
 - In **Easy Money**, "Identify…" questions get 4 options automatically: the right answer plus 3 others from the **same category** first, then the same course, then any course.
   Any question can supply its own options (the answer must be one of them):
   `{ "q": "What does fluoride do?", "a": "Inhibits glycolysis", "options": ["Inhibits glycolysis", "Anticoagulant", "Preserves bilirubin", "Lyses red cells"] }`
