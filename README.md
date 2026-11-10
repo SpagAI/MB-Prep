@@ -19,7 +19,11 @@ Just double-click `index.html`. You don't need a server or internet.
 |---|---|
 | **Study** | Label and answers visible. Browse freely, filter by category. |
 | **Easy Money** | No labels. 4 options per question, instant ✓/✗, hints, Previous/Next, pause. |
-| **Distinction** | Just the image, the questions and a countdown. No options, hints, pause or going back. Type answers (optional), then self-mark ✓ / ½ / ✗ at the end. |
+| **Distinction** | Just the image, the questions and a countdown. No options, hints, pause or going back. Write your answers on paper, like the real exam. At the end you get the full **answer key** (numbered by slide) to check against, and you can mark yourself ✓ / ½ / ✗ for a score. |
+
+**Writing answers in Distinction:** by default there's nowhere to type. You write on paper as "Slide 1, Slide 2…", just like the hall.
+Prefer typing? Tick **"Type answers on screen"** on the home screen (or press the ✎ button during the exam). An answer box then appears under each question, and what you typed is shown next to the correct answer at the end.
+The answer key has a **Show pictures** switch. Turn it off for a compact list that's quick to check against your notes.
 
 Timer: Off (use Next), or anything from 5 s to 30 min. It turns amber at 25% left and red at 10 s, can beep, and moves on by itself at 0.
 Distinction mode always has a timer (1 min by default).

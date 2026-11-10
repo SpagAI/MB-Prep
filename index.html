@@ -47,6 +47,8 @@
         </button>
       </div>
       <label class="check study-only"><input type="checkbox" id="study-shuffle"> Shuffle in Study mode</label>
+      <label class="check dist-only"><input type="checkbox" id="answer-boxes"> Type answers on screen
+        <span class="note">(off = write them on paper, like the real exam; answers are shown at the end)</span></label>
     </div>
 
     <div class="card">
@@ -91,6 +93,7 @@
       <div id="timer" class="timer" aria-live="off"></div>
       <div class="exam-right">
         <select id="study-filter" class="ghost-select" aria-label="Filter by category" hidden></select>
+        <button type="button" id="boxes-btn" class="ghost" title="Show/hide answer boxes" hidden>✎<span class="end-txt"> Type answers</span></button>
         <button type="button" id="pause-btn" class="ghost" title="Pause (Space)">❚❚</button>
         <button type="button" id="fs-btn" class="ghost" title="Fullscreen (F)">⛶</button>
       </div>
@@ -138,7 +141,10 @@
       </div>
     </header>
     <div id="breakdown"></div>
-    <h2 class="review-title">Review</h2>
+    <div class="review-head">
+      <h2 class="review-title" id="review-title">Review</h2>
+      <label class="check"><input type="checkbox" id="review-pics" checked> Show pictures</label>
+    </div>
     <p id="review-help" class="note"></p>
     <div id="review"></div>
   </section>

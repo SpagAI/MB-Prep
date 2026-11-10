@@ -294,6 +294,7 @@ body.screen-exam { background: var(--x-bg); color: var(--x-ink); overscroll-beha
 .bar.low > span { background: var(--bad); }
 .weak { color: var(--bad); font-weight: 700; font-size: .8rem; margin-left: 4px; }
 .review-title { margin: 24px 0 2px; font-size: 1.2rem; }
+#review-help { margin-bottom: 10px; }
 .review-item {
   display: grid; grid-template-columns: 1fr; gap: 12px; background: var(--surface);
   border: 1px solid var(--line); border-radius: var(--radius); padding: 12px; margin-bottom: 12px;
@@ -325,6 +326,24 @@ body.screen-exam { background: var(--x-bg); color: var(--x-ink); overscroll-beha
 }
 .lightbox img { max-width: 96vw; max-height: 96vh; object-fit: contain; }
 
-/* Study mode only controls on home */
-.study-only { display: none; }
+/* Mode-specific controls on home */
+.study-only, .dist-only { display: none; }
 body.mode-study .study-only { display: flex; }
+body.mode-distinction .dist-only { display: flex; flex-wrap: wrap; }
+.dist-only .note { flex-basis: 100%; margin: 0 0 0 28px; }
+
+/* Paper mode note in the exam panel */
+.paper-note {
+  color: var(--x-muted); font-size: .85em; margin: 0 0 12px; padding: 8px 10px;
+  border: 1px dashed var(--x-line); border-radius: 8px;
+}
+#boxes-btn.on { background: #2563eb; border-color: #2563eb; }
+
+/* Answer key / review */
+.review-head { display: flex; justify-content: space-between; align-items: flex-end; gap: 10px; flex-wrap: wrap; margin-top: 24px; }
+.review-head .review-title { margin: 0; }
+.review-head .check { margin: 0; }
+.r-q .qnum { color: var(--muted); font-weight: 800; margin-right: 4px; }
+.r-q .row .ans { font-weight: 700; color: var(--ok); }
+#review.no-pics .review-item { grid-template-columns: 1fr; padding: 10px 12px; }
+#review.no-pics .review-item > .pic { display: none; }

@@ -117,6 +117,7 @@
     count: 20,
     beep: true,
     studyShuffle: false,
+    answerBoxes: false, // Distinction: off = write answers on paper (default, like the real exam)
   };
   const settings = Object.assign({}, defaults, load(KEY_SETTINGS, {}));
   const knownCats = new Set();
@@ -151,6 +152,7 @@
     renderHistory();
     $('#beep-toggle').checked = !!settings.beep;
     $('#study-shuffle').checked = !!settings.studyShuffle;
+    $('#answer-boxes').checked = !!settings.answerBoxes;
   }
 
   function renderCourses() {
@@ -229,6 +231,7 @@
       b.setAttribute('aria-checked', on);
     }
     document.body.classList.toggle('mode-study', settings.mode === 'study');
+    document.body.classList.toggle('mode-distinction', settings.mode === 'distinction');
   }
 
   function renderTimer() {
@@ -327,7 +330,7 @@
     wrap.innerHTML = hist.slice(0, 30).map((h) => {
       const d = new Date(h.date);
       const when = isNaN(d) ? '' : d.toLocaleString(undefined, { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
-      const score = h.possible ? `${fmtNum(h.earned)}/${h.possible} (${Math.round((h.earned / h.possible) * 100)}%)` : '—';
+      const score = h.unmarked ? 'not marked' : h.possible ? `${fmtNum(h.earned)}/${h.possible} (${Math.round((h.earned / h.possible) * 100)}%)` : '—';
       return `<div class="history-row"><span>${esc(when)} · <strong>${esc(MODE_NAMES[h.mode] || h.mode)}</strong> · ${plural(h.slides, 'slide')}${h.retry ? ' · retry' : ''}</span>
         <span class="h-score">${score}</span><span class="h-meta">${esc(h.cats || '')}</span></div>`;
     }).join('');
@@ -444,6 +447,7 @@
       beep: settings.beep,
       count: settings.count,
       studyShuffle: settings.studyShuffle,
+      answerBoxes: !!settings.answerBoxes,
       selection: selectionText(selectedItems()),
       itemIds: null,
     };
@@ -463,6 +467,8 @@
     $('#hint-btn').hidden = m !== 'easy';
     $('#pause-btn').hidden = m === 'distinction' || !S.config.timer;
     $('#study-filter').hidden = m !== 'study';
+    $('#boxes-btn').hidden = m !== 'distinction';
+    $('#boxes-btn').classList.toggle('on', !!S.config.answerBoxes);
     if (m === 'study') {
       const sel = $('#study-filter');
       const counts = new Map();
@@ -539,6 +545,16 @@
     const m = S.config.mode;
     const list = $('#questions');
     list.innerHTML = '';
+    const paper = m === 'distinction' && !S.config.answerBoxes;
+    let note = $('#paper-note');
+    if (!note) {
+      note = document.createElement('p');
+      note.id = 'paper-note';
+      note.className = 'paper-note';
+      list.parentNode.insertBefore(note, list);
+    }
+    note.hidden = !paper;
+    if (paper) note.textContent = `✎ Write your answers on paper as “Slide ${S.idx + 1}”. All answers are shown at the end.`;
     slide.qs.forEach((q, qi) => {
       const li = document.createElement('li');
       const a = slide.ans[qi] || {};
@@ -572,7 +588,7 @@
           }
         }
         if (slide.hints && q.hint) html += `<div class="q-hint">💡 ${esc(q.hint)}</div>`;
-      } else {
+      } else if (S.config.answerBoxes) {
         html += `<textarea class="answer-box" data-q="${qi}" rows="2" placeholder="Type your answer (optional)" autocomplete="off" autocorrect="off" spellcheck="false"></textarea>`;
       }
       li.innerHTML = html;
@@ -703,6 +719,14 @@
     $('#pause-btn').textContent = p ? '▶' : '❚❚';
   }
   $('#pause-btn').addEventListener('click', () => setPaused(!T.paused));
+  $('#boxes-btn').addEventListener('click', () => {
+    // Switch answer boxes on/off mid-exam; anything already typed is kept.
+    S.config.answerBoxes = !S.config.answerBoxes;
+    settings.answerBoxes = S.config.answerBoxes;
+    persistSettings();
+    $('#boxes-btn').classList.toggle('on', S.config.answerBoxes);
+    renderQuestions();
+  });
   $('#resume-btn').addEventListener('click', () => setPaused(false));
 
   let audioCtx = null;
@@ -904,6 +928,7 @@
       slides: scoredSlides().length,
       cats: selectionText(scoredSlides().map((s) => s.item)),
       retry: !!S.config.retry,
+      unmarked: S.config.mode === 'distinction' && t.possible > 0 && t.unmarked === t.possible,
     };
     const i = hist.findIndex((h) => h.id === rec.id);
     if (i >= 0) hist[i] = rec; else hist.unshift(rec);
@@ -924,6 +949,17 @@
   function updateScoreHeader() {
     const t = totals();
     const pct = t.possible ? Math.round((t.earned / t.possible) * 100) : 0;
+    const nothingMarked = S.config.mode === 'distinction' && t.possible > 0 && t.unmarked === t.possible;
+    $('#breakdown').hidden = nothingMarked;
+    if (nothingMarked) {
+      // Paper answers not checked yet: don't show a misleading 0% or "weak" everywhere.
+      $('#score-big').textContent = '—';
+      $('#score-sub').textContent = `${plural(scoredSlides().length, 'slide')} · mark your answers against the answer key below to get a score` +
+        (scoredSlides().length < S.slides.length ? ` · ended early (${S.slides.length - scoredSlides().length} not reached)` : '');
+      $('#retry-wrong').disabled = true;
+      saveHistory();
+      return;
+    }
     $('#score-big').textContent = `${pct}%`;
     let sub = `${fmtNum(t.earned)} / ${t.possible} marks · ${plural(scoredSlides().length, 'slide')}`;
     if (S.config.mode === 'distinction' && t.unmarked) sub += ` · ${t.unmarked} answer${t.unmarked === 1 ? '' : 's'} still to mark`;
@@ -940,22 +976,27 @@
   function renderResults() {
     const m = S.config.mode;
     $('#results-title').textContent = `${MODE_NAMES[m]} results`;
-    $('#review-help').textContent = m === 'distinction'
-      ? 'Compare your answers with the correct ones and mark each: ✓ = full mark, ½ = half, ✗ = wrong. The score updates as you mark.'
-      : 'Every slide with the correct answers. Wrong answers are marked in red.';
+    const typed = scoredSlides().some((s) => s.ans.some((a) => a && (a.text || '').trim()));
+    const showTyped = m === 'distinction' && (S.config.answerBoxes || typed);
+    $('#review-title').textContent = m === 'distinction' ? 'Answer key' : 'Review';
+    $('#review-help').textContent = m !== 'distinction'
+      ? 'Every slide with the correct answers. Wrong answers are marked in red.'
+      : (showTyped
+        ? 'Compare your answers with the correct ones and mark each: ✓ = full mark, ½ = half, ✗ = wrong. The score updates as you mark.'
+        : 'Check the answers you wrote on paper against this key (slide numbers match). Mark each one ✓ / ½ / ✗ if you want a score.');
     const wrap = $('#review');
     wrap.innerHTML = '';
     scoredSlides().forEach((s, si) => {
       const it = s.item;
       const div = document.createElement('div');
       div.className = 'review-item';
-      let html = `<div><img loading="lazy" src="${esc(it.src)}" alt="${esc(it.label)}" data-full="${esc(it.src)}"></div><div>
-        <div class="r-label">${si + 1}. ${esc(it.label)}</div>
+      let html = `<div class="pic"><img loading="lazy" src="${esc(it.src)}" alt="${esc(it.label)}" data-full="${esc(it.src)}"></div><div>
+        <div class="r-label">Slide ${si + 1}: ${esc(it.label)}</div>
         <div class="r-meta">${esc(it.course)} › ${esc(catName(it.category))}${it.type ? ' · ' + esc(it.type) : ''}${s.hintUsed ? ' · hint used' : ''}</div>`;
       s.qs.forEach((q, qi) => {
         const a = s.ans[qi] || {};
-        html += `<div class="r-q"><div class="qq">${esc(q.q)}</div>
-          <div class="row"><span class="k">Correct</span><span>${esc(q.a || '—')}</span></div>`;
+        html += `<div class="r-q"><div class="qq"><span class="qnum">${qi + 1}.</span>${esc(q.q)}</div>
+          <div class="row"><span class="k">Answer</span><span class="ans">${esc(q.a || '—')}</span></div>`;
         if (m === 'easy') {
           let yours;
           let tag;
@@ -969,8 +1010,10 @@
           html += `<div class="row"><span class="k">You</span><span>${yours} ${tag}</span></div>`;
         } else {
           const txt = (a.text || '').trim();
-          html += `<div class="row"><span class="k">You wrote</span><span class="yours ${txt ? '' : 'blank'}">${txt ? esc(txt) : 'Nothing typed (answered on paper?)'}</span></div>
-            <div class="mark-row" data-s="${si}" data-q="${qi}">
+          if (showTyped) {
+            html += `<div class="row"><span class="k">You wrote</span><span class="yours ${txt ? '' : 'blank'}">${txt ? esc(txt) : 'Nothing typed'}</span></div>`;
+          }
+          html += `<div class="mark-row" data-s="${si}" data-q="${qi}">
               <button type="button" data-v="1" class="${a.mark === 1 ? 'on' : ''}" aria-label="Correct">✓</button>
               <button type="button" data-v="0.5" class="${a.mark === 0.5 ? 'on' : ''}" aria-label="Half">½</button>
               <button type="button" data-v="0" class="${a.mark === 0 ? 'on' : ''}" aria-label="Wrong">✗</button></div>`;
@@ -1037,6 +1080,8 @@
   });
   $('#beep-toggle').addEventListener('change', (e) => { settings.beep = e.target.checked; persistSettings(); });
   $('#study-shuffle').addEventListener('change', (e) => { settings.studyShuffle = e.target.checked; persistSettings(); });
+  $('#answer-boxes').addEventListener('change', (e) => { settings.answerBoxes = e.target.checked; persistSettings(); });
+  $('#review-pics').addEventListener('change', (e) => { $('#review').classList.toggle('no-pics', !e.target.checked); });
   $('#history-clear').addEventListener('click', () => {
     if (window.confirm('Delete all past session scores?')) { save(KEY_HISTORY, []); renderHistory(); }
   });
