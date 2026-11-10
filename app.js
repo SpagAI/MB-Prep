@@ -597,11 +597,34 @@
     }
   }
 
+  // ---------------------------------------------------------------- in-page confirm box
+  // (window.confirm is blocked in some embedded viewers and looks out of place on phones)
+  let confirmResolve = null;
+  function askConfirm(message, yesLabel) {
+    closeConfirm(false);
+    $('#confirm-msg').textContent = message;
+    $('#confirm-yes').textContent = yesLabel || 'OK';
+    $('#confirm').hidden = false;
+    $('#confirm-yes').focus();
+    return new Promise((resolve) => { confirmResolve = resolve; });
+  }
+  function closeConfirm(answer) {
+    if ($('#confirm').hidden && !confirmResolve) return;
+    $('#confirm').hidden = true;
+    const r = confirmResolve;
+    confirmResolve = null;
+    if (r) r(answer);
+  }
+  $('#confirm-yes').addEventListener('click', () => closeConfirm(true));
+  $('#confirm-no').addEventListener('click', () => closeConfirm(false));
+  $('#confirm').addEventListener('click', (e) => { if (e.target.id === 'confirm') closeConfirm(false); });
+
   // ---------------------------------------------------------------- exam display
   const img = $('#slide-img');
   let preloadImg = null;
 
   function showSlide(i) {
+    closeConfirm(false); // e.g. the timer moved on while "End session?" was open
     stopTimer();
     resetZoom();
     setPaused(false);
@@ -765,8 +788,10 @@
     if (!auto && S.config.mode === 'distinction' && Date.now() - S.lastNav < 700) return;
     if (S.idx < S.slides.length - 1) {
       showSlide(S.idx + 1);
-    } else if (auto || S.config.mode === 'study' || window.confirm('Finish the session and see your results?')) {
+    } else if (auto || S.config.mode === 'study') {
       finish();
+    } else {
+      askConfirm('Finish the session and see your results?', 'Finish').then((yes) => { if (yes && !S.finished) finish(); });
     }
   }
   function prev() {
@@ -787,7 +812,8 @@
   $('#hint-btn').addEventListener('click', toggleHint);
   $('#end-btn').addEventListener('click', () => {
     if (S.config.mode === 'study') { stopTimer(); exitFullscreen(); showScreen('home'); renderHome(); return; }
-    if (window.confirm('End this session now? Slides you have not reached will not be scored.')) finish(true);
+    askConfirm('End this session now? Slides you have not reached will not be scored.', 'End session')
+      .then((yes) => { if (yes && !S.finished) finish(true); });
   });
   $('#study-filter').addEventListener('change', (e) => {
     const k = e.target.value;
@@ -1017,6 +1043,7 @@
   }
 
   function finish() {
+    closeConfirm(false);
     stopTimer();
     setPaused(false);
     S.finished = true;
@@ -1219,7 +1246,7 @@
   $('#answer-boxes').addEventListener('change', (e) => { settings.answerBoxes = e.target.checked; persistSettings(); });
   $('#review-pics').addEventListener('change', (e) => { $('#review').classList.toggle('no-pics', !e.target.checked); });
   $('#history-clear').addEventListener('click', () => {
-    if (window.confirm('Delete all past session scores?')) { save(KEY_HISTORY, []); renderHistory(); }
+    askConfirm('Delete all past session scores?', 'Delete').then((yes) => { if (yes) { save(KEY_HISTORY, []); renderHistory(); } });
   });
   $('#start-btn').addEventListener('click', () => {
     unlockAudio();
@@ -1235,6 +1262,10 @@
       return;
     }
     const k = e.key;
+    if (!$('#confirm').hidden) {
+      if (k === 'Escape') closeConfirm(false);
+      return; // Enter/Space activate the focused button natively
+    }
     if (k === 'f' || k === 'F') { toggleFullscreen(); e.preventDefault(); return; }
     if (!$('#lightbox').hidden && k === 'Escape') { $('#lightbox').hidden = true; return; }
     if ($('#exam').hidden) return;
