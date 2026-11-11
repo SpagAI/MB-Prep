@@ -45,6 +45,9 @@ function walk(dir) {
     const ext = path.extname(ent.name).toLowerCase();
     if (!IMAGE_EXT.has(ext)) continue;
     const base = path.basename(ent.name, ext);
+    // "name__2.jpg" is an extra photo of "name.jpg": its questions live in name.json
+    const vbase = base.replace(/__\d+$/, '').replace(/\s*\(\d+\)$/, '');
+    if (vbase !== base) continue;
     const jsonPath = path.join(dir, base + '.json');
     if (fs.existsSync(jsonPath)) {
       // A JSON made by extract.py (label/type only): add blank question slots, keep everything else.

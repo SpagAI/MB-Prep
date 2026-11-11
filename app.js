@@ -1,4 +1,4 @@
-/* Practical Projector — spotting exam simulator. Plain JS, works from file:// (data comes from bank.js). */
+/* Lengible — practical spotting exam simulator. Plain JS, works from file:// (data comes from bank.js). */
 (function () {
   'use strict';
 
@@ -156,7 +156,8 @@
 
   // ---------------------------------------------------------------- home screen
   function renderHome() {
-    $('#bank-total').textContent = ITEMS.length ? plural(ITEMS.length, 'image') + ' in your bank' : 'empty bank';
+    const photoCount = ITEMS.reduce((t, i) => t + (i.images ? i.images.length : 1), 0);
+    $('#bank-total').textContent = ITEMS.length ? `${plural(ITEMS.length, 'specimen')} · ${plural(photoCount, 'photo')}` : 'empty bank';
     $('#bank-missing').hidden = ITEMS.length > 0;
     renderCourses();
     renderModes();
@@ -179,7 +180,7 @@
       b.className = 'course-btn' + (selCourses.has(c.name) ? ' on' : '') + (n ? '' : ' empty');
       b.style.setProperty('--c', courseColor(c.name));
       b.setAttribute('aria-pressed', selCourses.has(c.name));
-      b.innerHTML = `${esc(c.name)}<small>${n ? plural(n, 'image') : 'No pictures yet'}</small>`;
+      b.innerHTML = `${esc(c.name)}<small>${n ? plural(n, 'specimen') : 'No pictures yet'}</small>`;
       if (n) b.addEventListener('click', () => toggleCourse(c.name));
       else { b.disabled = true; b.title = 'No pictures for this course yet: add its files to the bank'; }
       wrap.appendChild(b);
@@ -300,7 +301,7 @@
         const row = document.createElement('div');
         row.className = 'pc-row';
         row.style.setProperty('--c', courseColor(course));
-        row.innerHTML = `<span class="pc-name">${esc(course)}<small>${plural(list.length, 'image')} available</small></span>` +
+        row.innerHTML = `<span class="pc-name">${esc(course)}<small>${plural(list.length, 'specimen')} available</small></span>` +
           [5, 10, 20].map((n) => `<button type="button" class="pill ${cur === n ? 'on' : ''}" data-n="${n}" ${n > list.length ? 'disabled' : ''}>${n}</button>`).join('') +
           `<button type="button" class="pill ${cur === 'all' ? 'on' : ''}" data-n="all">All</button>
           <input type="number" min="0" max="${list.length}" step="1" value="${cur === 'all' ? list.length : Math.min(cur, list.length)}" aria-label="Slides from ${esc(course)}">`;
@@ -419,7 +420,7 @@
       start.disabled = true;
       return;
     }
-    let txt = `<strong>${plural(usable.length, 'image')}</strong> from ${esc(selectionText(usable))}`;
+    let txt = `<strong>${plural(usable.length, 'specimen')}</strong> from ${esc(selectionText(usable))}`;
     txt += ` · <strong>${n}</strong> slide${n === 1 ? '' : 's'}`;
     if (plan.size > 1) {
       txt += ` (${[...plan].map(([c, k]) => `${esc(c)} ${k}`).join(', ')})`;
@@ -631,7 +632,93 @@
 
   // ---------------------------------------------------------------- exam display
   const img = $('#slide-img');
+  const ghost = $('#ghost-img');
   let preloadImg = null;
+  let preloadVar = null;
+
+  // ---- photo carousel: several photos of the same specimen (angles / years) on one slide
+  const V = { list: [], i: 0, timer: null, lastUser: 0, anim: [] };
+  const AUTO_MS = 4000;
+
+  function photosFor(it, exam) {
+    const all = it.images && it.images.length ? it.images : [{ src: it.src }];
+    const list = exam ? all.filter((x) => !x.studyOnly) : all; // exam: only neat photos, never ones with the answer on them
+    return list.length ? list : [{ src: it.src }];
+  }
+
+  function renderVarBar() {
+    const n = V.list.length;
+    $('#var-prev').hidden = $('#var-next').hidden = $('#var-bar').hidden = n < 2;
+    if (n < 2) return;
+    $('#var-dots').innerHTML = V.list.map((_, k) => `<i class="${k === V.i ? 'on' : ''}"></i>`).join('');
+    $('#var-count').textContent = `Photo ${V.i + 1} of ${n}`;
+  }
+
+  function showPhoto(k, dir) {
+    const n = V.list.length;
+    if (!n) return;
+    k = ((k % n) + n) % n;
+    const animate = dir && k !== V.i && img.complete && img.naturalWidth && !window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    V.anim.forEach((a) => a.cancel()); V.anim = [];
+    $('#layer-ghost').style.visibility = 'hidden'; // a cancelled slide must not leave the old photo behind
+    if (animate) {
+      // slide the old photo out and the new one in from the side
+      ghost.src = img.src;
+      const gl = $('#layer-ghost'), ml = $('#layer-main');
+      gl.style.visibility = 'visible';
+      const opts = { duration: 520, easing: 'cubic-bezier(.22,.8,.24,1)' };
+      V.anim.push(gl.animate([{ transform: 'translateX(0)', opacity: 1 }, { transform: `translateX(${-dir * 100}%)`, opacity: .4 }], opts));
+      V.anim.push(ml.animate([{ transform: `translateX(${dir * 100}%)`, opacity: .4 }, { transform: 'translateX(0)', opacity: 1 }], opts));
+      V.anim[0].onfinish = () => { gl.style.visibility = 'hidden'; };
+    }
+    V.i = k;
+    resetZoom();
+    img.src = V.list[k].src;
+    renderVarBar();
+    const nx = V.list[(k + 1) % n];
+    if (n > 1 && nx) { preloadVar = new Image(); preloadVar.src = nx.src; }
+  }
+
+  function userPhoto(step) {
+    if (V.list.length < 2) return;
+    V.lastUser = Date.now();
+    showPhoto(V.i + step, step);
+  }
+
+  function startAuto() {
+    stopAuto();
+    if (V.list.length < 2) return;
+    V.timer = setInterval(() => {
+      if (Z.s > 1 || T.paused || pointers.size || document.hidden || !$('#confirm').hidden) return;
+      if (Date.now() - V.lastUser < AUTO_MS * 1.5) return; // let the student look after switching by hand
+      showPhoto(V.i + 1, 1);
+    }, AUTO_MS);
+  }
+  function stopAuto() { if (V.timer) clearInterval(V.timer); V.timer = null; }
+
+  $('#var-prev').addEventListener('click', () => userPhoto(-1));
+  $('#var-next').addEventListener('click', () => userPhoto(1));
+
+  // ---- notes: collapsible box (Study mode and the answer key; never during an exam)
+  function noteLine(n) {
+    const m = String(n).match(/^([A-Z][A-Za-z /&()'-]{1,40}):\s*([\s\S]*)$/);
+    const cls = /^Key point:/.test(n) ? 'added' : /^Exam frequency:/.test(n) ? 'freq' : '';
+    if (!m) return `<li class="${cls}">${esc(n)}</li>`;
+    return `<li class="${cls}"><b>${esc(m[1])}:</b> ${esc(m[2])}</li>`;
+  }
+  function notesHTML(notes) {
+    if (!notes || !notes.length) return '';
+    return `<section class="notes"><button type="button" class="notes-toggle" aria-expanded="false">Notes <span class="count">${notes.length}</span><span class="chev" aria-hidden="true"></span></button>
+      <div class="notes-body"><div class="notes-inner"><ul class="notes-list">${notes.map(noteLine).join('')}</ul></div></div></section>`;
+  }
+  document.addEventListener('click', (e) => {
+    const t = e.target.closest('.notes-toggle');
+    if (!t) return;
+    const box = t.closest('.notes');
+    const open = !box.classList.contains('open');
+    box.classList.toggle('open', open);
+    t.setAttribute('aria-expanded', open);
+  });
 
   function showSlide(i) {
     closeConfirm(false); // e.g. the timer moved on while "End session?" was open
@@ -647,6 +734,7 @@
     const exam = m !== 'study';
 
     $('#progress').textContent = `Slide ${i + 1} / ${S.slides.length}`;
+    $('#progress-fill').style.width = `${((i + 1) / S.slides.length) * 100}%`;
     showBlockToast(i);
     const tag = $('#course-tag');
     tag.textContent = exam ? it.course : `${it.course} › ${catName(it.category)}`;
@@ -659,11 +747,15 @@
     img.alt = exam ? `Exam image ${i + 1}` : it.label;
     img.removeAttribute('title');
     img.onload = () => { $('#img-loading').hidden = true; img.style.visibility = 'visible'; };
-    img.onerror = () => { $('#img-loading').textContent = 'Image could not be loaded. Re-run node build-bank.js'; };
-    img.src = it.src;
-    // Preload only the next slide.
+    img.onerror = () => { $('#img-loading').hidden = false; $('#img-loading').textContent = 'Image could not be loaded. Re-run node build-bank.js'; };
+    V.anim.forEach((a) => a.cancel()); V.anim = []; $('#layer-ghost').style.visibility = 'hidden';
+    V.list = photosFor(it, exam);
+    V.i = 0; V.lastUser = 0;
+    showPhoto(0, 0);
+    startAuto();
+    // Preload only the next slide (its first photo).
     const next = S.slides[i + 1];
-    if (next) { preloadImg = new Image(); preloadImg.src = next.item.src; }
+    if (next) { preloadImg = new Image(); preloadImg.src = photosFor(next.item, exam)[0].src; }
 
     // Study label
     const lab = $('#study-label');
@@ -672,9 +764,7 @@
       const typ = it.type ? it.type.charAt(0).toUpperCase() + it.type.slice(1) : '';
       lab.innerHTML = `${esc(it.label)}<span class="meta">${esc(it.course)} › ${esc(catName(it.category))}${it.sub ? ' › ' + esc(it.sub) : ''}${typ ? ' · ' + esc(typ) : ''}</span>`;
     }
-    const notes = $('#study-notes');
-    notes.hidden = exam || !(it.notes && it.notes.length);
-    if (!notes.hidden) notes.innerHTML = '<strong>Notes</strong><ul>' + it.notes.map((n) => `<li>${esc(n)}</li>`).join('') + '</ul>';
+    $('#study-notes').innerHTML = exam ? '' : notesHTML(it.notes);
 
     renderQuestions();
     $('#panel').scrollTop = 0;
@@ -682,7 +772,7 @@
     $('#prev-btn').disabled = i === 0;
     $('#next-btn').textContent = i === S.slides.length - 1 ? (m === 'study' ? 'Finish' : 'Finish ✓') : 'Next →';
     $('#hint-btn').disabled = !slide.qs.some((q) => q.hint);
-    $('#hint-btn').textContent = slide.hints ? '💡 Hide hint' : '💡 Hint';
+    $('#hint-btn').textContent = slide.hints ? 'Hide hint' : 'Hint';
     startTimer();
   }
 
@@ -750,7 +840,7 @@
               <button type="button" class="no ${a.self === false ? 'on' : ''}" data-self="${qi}" data-v="0">✗ I missed it</button></div>`;
           }
         }
-        if (slide.hints && q.hint) html += `<div class="q-hint">💡 ${esc(q.hint)}</div>`;
+        if (slide.hints && q.hint) html += `<div class="q-hint">${esc(q.hint)}</div>`;
       } else if (S.config.answerBoxes) {
         html += `<textarea class="answer-box" data-q="${qi}" rows="2" placeholder="Type your answer (optional)" autocomplete="off" autocorrect="off" spellcheck="false"></textarea>`;
       }
@@ -813,7 +903,7 @@
     const slide = S.slides[S.idx];
     slide.hints = !slide.hints;
     if (slide.hints) slide.hintUsed = true;
-    $('#hint-btn').textContent = slide.hints ? '💡 Hide hint' : '💡 Hint';
+    $('#hint-btn').textContent = slide.hints ? 'Hide hint' : 'Hint';
     renderQuestions();
   }
 
@@ -821,7 +911,7 @@
   $('#prev-btn').addEventListener('click', prev);
   $('#hint-btn').addEventListener('click', toggleHint);
   $('#end-btn').addEventListener('click', () => {
-    if (S.config.mode === 'study') { stopTimer(); exitFullscreen(); showScreen('home'); renderHome(); return; }
+    if (S.config.mode === 'study') { stopTimer(); stopAuto(); exitFullscreen(); showScreen('home'); renderHome(); return; }
     askConfirm('End this session now? Slides you have not reached will not be scored.', 'End session')
       .then((yes) => { if (yes && !S.finished) finish(true); });
   });
@@ -982,6 +1072,10 @@
     pointers.delete(e.pointerId);
     if (gesture && gesture.type === 'pan' && !gesture.moved && Date.now() - gesture.t < 400 && e.type === 'pointerup') {
       if (Z.s > 1) resetZoom(); else zoomAt(2.5, p.x, p.y);
+    } else if (gesture && gesture.type === 'pan' && Z.s === 1 && e.type === 'pointerup' && gesture.t && Date.now() - gesture.t < 700) {
+      // swipe left / right = other photos of this specimen
+      const dx = p.x - gesture.sx, dy = p.y - gesture.sy;
+      if (Math.abs(dx) > 50 && Math.abs(dx) > 1.3 * Math.abs(dy)) userPhoto(dx < 0 ? 1 : -1);
     }
     if (pointers.size === 1) {
       const rest = [...pointers.values()][0];
@@ -1055,6 +1149,7 @@
   function finish() {
     closeConfirm(false);
     stopTimer();
+    stopAuto();
     setPaused(false);
     S.finished = true;
     exitFullscreen();
@@ -1157,7 +1252,8 @@
       const it = s.item;
       const div = document.createElement('div');
       div.className = 'review-item';
-      let html = `<div class="pic"><img loading="lazy" src="${esc(it.src)}" alt="${esc(it.label)}" data-full="${esc(it.src)}"></div><div>
+      const photos = photosFor(it, false);
+      let html = `<div class="pic"><img loading="lazy" src="${esc(photos[0].src)}" alt="${esc(it.label)}" data-si="${si}">${photos.length > 1 ? `<span class="pic-count">${photos.length} photos</span>` : ''}</div><div>
         <div class="r-label">Slide ${si + 1}: ${esc(it.label)}</div>
         <div class="r-meta">${esc(it.course)} › ${esc(catName(it.category))}${it.type ? ' · ' + esc(it.type) : ''}${s.hintUsed ? ' · hint used' : ''}</div>`;
       s.qs.forEach((q, qi) => {
@@ -1187,7 +1283,7 @@
         }
         html += '</div>';
       });
-      html += '</div>';
+      html += notesHTML(it.notes) + '</div>';
       div.innerHTML = html;
       wrap.appendChild(div);
     });
@@ -1205,9 +1301,24 @@
       updateScoreHeader();
       return;
     }
-    const im = e.target.closest('img[data-full]');
-    if (im) { $('#lightbox-img').src = im.dataset.full; $('#lightbox').hidden = false; }
+    const im = e.target.closest('img[data-si]');
+    if (im) openLightbox(photosFor(scoredSlides()[+im.dataset.si].item, false), 0);
   });
+  const LB = { list: [], i: 0 };
+  function openLightbox(list, k) {
+    LB.list = list; LB.i = k;
+    lbShow();
+    $('#lightbox').hidden = false;
+  }
+  function lbShow() {
+    const n = LB.list.length;
+    LB.i = ((LB.i % n) + n) % n;
+    $('#lightbox-img').src = LB.list[LB.i].src;
+    $('#lb-prev').hidden = $('#lb-next').hidden = n < 2;
+    $('#lb-count').textContent = n > 1 ? `Photo ${LB.i + 1} of ${n}` : '';
+  }
+  $('#lb-prev').addEventListener('click', (e) => { e.stopPropagation(); LB.i--; lbShow(); });
+  $('#lb-next').addEventListener('click', (e) => { e.stopPropagation(); LB.i++; lbShow(); });
   $('#lightbox').addEventListener('click', () => { $('#lightbox').hidden = true; });
 
   $('#retry-wrong').addEventListener('click', () => {
@@ -1277,9 +1388,15 @@
       return; // Enter/Space activate the focused button natively
     }
     if (k === 'f' || k === 'F') { toggleFullscreen(); e.preventDefault(); return; }
-    if (!$('#lightbox').hidden && k === 'Escape') { $('#lightbox').hidden = true; return; }
+    if (!$('#lightbox').hidden) {
+      if (k === 'Escape') $('#lightbox').hidden = true;
+      else if (k === 'ArrowRight' || k === 'ArrowDown') { LB.i++; lbShow(); }
+      else if (k === 'ArrowLeft' || k === 'ArrowUp') { LB.i--; lbShow(); }
+      return;
+    }
     if ($('#exam').hidden) return;
     const m = S.config.mode;
+    if (k === 'ArrowUp' || k === 'ArrowDown') { e.preventDefault(); userPhoto(k === 'ArrowDown' ? 1 : -1); return; }
     if (k === 'ArrowRight' || k === 'PageDown') { e.preventDefault(); if (!T.paused) next(false); }
     else if (k === 'ArrowLeft' || k === 'PageUp') { e.preventDefault(); if (!T.paused) prev(); }
     else if (k === ' ' || k === 'Spacebar') {

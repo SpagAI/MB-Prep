@@ -1,4 +1,4 @@
-# Practical Projector
+# Lengible
 
 A spotting-exam simulator for medical school practicals (Histopathology, Chemical Pathology, MMP, Haematology).
 A slide, pot or photomicrograph is shown with questions under it, a countdown runs, and you can't go back.
@@ -36,7 +36,11 @@ The answer key has a **Show pictures** switch. Turn it off for a compact list th
 Timer: Off (use Next), or anything from 5 s to 30 min. It turns amber at 25% left and red at 10 s, can beep, and moves on by itself at 0.
 Distinction mode always has a timer (1 min by default).
 
-**Keyboard (laptop / projector):** `→` next · `←` previous (Easy/Study) · `1`–`4` pick option · `H` hint · `F` fullscreen · `Space` pause (not in Distinction).
+**Keyboard (laptop / projector):** `→` next · `←` previous (Easy/Study) · `↑` `↓` other photos of the same specimen · `1`–`4` pick option · `H` hint · `F` fullscreen · `Space` pause (not in Distinction).
+
+**Several photos of one specimen** (different angles or years) are shown on one slide: they slide by themselves every 4 seconds, and you can use the ‹ › arrows, swipe, or `↑` `↓`. Photos are always shown whole, never cut off. In exams only the neat photos are used; a photo with the answer visible on it appears in Study mode only.
+
+**Notes:** extra information that wasn't asked (gross features, causes, viva points, how often it was set) is in a **Notes** box that opens and closes with a tap. It shows in Study mode and in the answer key, never during an exam.
 A presentation clicker also works (it sends Page Down / Page Up).
 **Zoom:** click/tap the picture, pinch, scroll the mouse wheel, or use the ＋ / － buttons.
 
@@ -127,7 +131,7 @@ bank/
 
 - Level 1 = course, level 2 = category. Deeper folders become sub-categories.
 - `hepatocellular-carcinoma.jpg` → answer **"Hepatocellular carcinoma"**. Use hyphens or underscores between words.
-  Two pictures of the same thing? Name them `cirrhosis.jpg` and `cirrhosis__2.jpg`. The `__2` is ignored.
+  More photos of the same specimen? Name them `cirrhosis__2.jpg`, `cirrhosis__3.jpg`… They become extra photos on the `cirrhosis` slide (one slide, a slideshow of photos), sharing `cirrhosis.json`.
 - **To fix a label, just rename the file.**
 - Pictures named `unlabelled-…` only show in Study mode until you rename them.
 
@@ -158,6 +162,8 @@ For more, put a JSON file with the **same name** next to the picture:
 
 - `type`: `slide`, `pot` or `photomicrograph` (optional).
 - `label`: optional; overrides the file name.
+- `notes`: optional list of extra facts, shown in the collapsible Notes box (Study mode and answer key only).
+- `images`: optional list setting the photo order, e.g. `[{"file": "cirrhosis.jpg"}, {"file": "cirrhosis__2.jpg", "studyOnly": true}]`. The first is shown first; `studyOnly` keeps that one photo out of exams.
 - `hint`: optional; shown when you press Hint in Easy Money.
 - `"studyOnly": true`: optional; for a photo where the answer is written on the picture (an answer card, a typed caption). It then appears in Study mode only, never in an exam.
 - In **Easy Money**, "Identify…" questions get 4 options automatically: the right answer plus 3 others from the **same category** first, then the same course, then any course.

@@ -3,17 +3,28 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <meta name="theme-color" content="#1e293b">
-  <title>Practical Projector</title>
+  <meta name="theme-color" content="#2a1d4f">
+  <title>Lengible</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap">
   <link rel="stylesheet" href="styles.css">
 </head>
 <body class="screen-home">
 
   <!-- ============ HOME / SETUP ============ -->
   <section id="home" class="screen" aria-labelledby="home-title">
-    <header class="home-head">
-      <h1 id="home-title">Practical Projector</h1>
-      <p class="tagline">Spotting exam simulator · <span id="bank-total"></span></p>
+    <header class="brand-bar">
+      <div class="brand">
+        <svg class="brand-mark" viewBox="0 0 40 40" aria-hidden="true">
+          <circle cx="20" cy="20" r="18" fill="var(--hx)"/>
+          <circle cx="20" cy="20" r="12.5" fill="none" stroke="var(--eo)" stroke-width="3"/>
+          <circle cx="15.5" cy="16" r="3" fill="#fff"/><circle cx="24.5" cy="22.5" r="2.4" fill="#fff" opacity=".8"/>
+        </svg>
+        <div>
+          <h1 id="home-title">Lengible</h1>
+          <p class="tagline">Practical spotting exams · <span id="bank-total"></span></p>
+        </div>
+      </div>
     </header>
 
     <div id="bank-missing" class="card warn" hidden>
@@ -23,7 +34,7 @@
 
     <div class="card">
       <div class="card-head">
-        <h2>1. Courses</h2>
+        <h2><span class="step">1</span>Courses</h2>
         <button type="button" class="link-btn" id="courses-all">Select all</button>
       </div>
       <div id="course-buttons" class="course-grid"></div>
@@ -31,11 +42,11 @@
     </div>
 
     <div class="card">
-      <h2>2. Mode</h2>
+      <h2><span class="step">2</span>Mode</h2>
       <div class="mode-grid" role="radiogroup" aria-label="Mode">
         <button type="button" class="mode-btn" data-mode="study" role="radio">
           <span class="mode-name">Study</span>
-          <span class="mode-desc">Labels and answers visible. Browse freely.</span>
+          <span class="mode-desc">Names, answers and notes visible. Browse freely.</span>
         </button>
         <button type="button" class="mode-btn" data-mode="easy" role="radio">
           <span class="mode-name">Easy Money</span>
@@ -43,7 +54,7 @@
         </button>
         <button type="button" class="mode-btn" data-mode="distinction" role="radio">
           <span class="mode-name">Distinction</span>
-          <span class="mode-desc">Real exam: image, questions, countdown. No going back.</span>
+          <span class="mode-desc">The real thing: picture, questions, countdown. No going back.</span>
         </button>
       </div>
       <label class="check study-only"><input type="checkbox" id="study-shuffle"> Shuffle in Study mode</label>
@@ -52,7 +63,7 @@
     </div>
 
     <div class="card">
-      <h2>3. Timer per slide: <span id="timer-readout" class="readout"></span></h2>
+      <h2><span class="step">3</span>Timer per slide <span id="timer-readout" class="readout"></span></h2>
       <input type="range" id="timer-slider" min="0" max="1" step="1" aria-label="Timer per slide">
       <div id="timer-presets" class="pill-row"></div>
       <p id="timer-note" class="note"></p>
@@ -60,7 +71,7 @@
     </div>
 
     <div class="card">
-      <h2>4. Number of slides</h2>
+      <h2><span class="step">4</span>Number of slides</h2>
       <div class="seg" role="radiogroup" aria-label="How to count slides">
         <button type="button" class="seg-btn" data-countmode="total" role="radio">Same total</button>
         <button type="button" class="seg-btn" data-countmode="per" role="radio">Choose per practical</button>
@@ -70,7 +81,7 @@
       <div id="order-row" class="order-row">
         <h3>Order</h3>
         <div class="seg" role="radiogroup" aria-label="Order of practicals">
-          <button type="button" class="seg-btn" data-order="mixed" role="radio">🔀 Mix practicals together</button>
+          <button type="button" class="seg-btn" data-order="mixed" role="radio">Mix practicals together</button>
           <button type="button" class="seg-btn" data-order="blocks" role="radio">One practical at a time</button>
         </div>
         <p id="order-note" class="note"></p>
@@ -91,7 +102,7 @@
     </div>
 
     <footer class="home-foot">
-      Shortcuts: → next · ← previous · 1–4 pick option · H hint · F fullscreen · Space pause
+      Keyboard: → next · ← previous · ↑ ↓ other photos · 1–4 pick option · H hint · F fullscreen · Space pause
     </footer>
   </section>
 
@@ -110,12 +121,17 @@
         <button type="button" id="pause-btn" class="ghost" title="Pause (Space)">❚❚</button>
         <button type="button" id="fs-btn" class="ghost" title="Fullscreen (F)">⛶</button>
       </div>
+      <div class="progress-track" aria-hidden="true"><span id="progress-fill"></span></div>
     </div>
 
     <div class="exam-body">
       <div id="stage" class="stage">
-        <img id="slide-img" alt="" draggable="false">
+        <div class="layer" id="layer-ghost" aria-hidden="true"><img id="ghost-img" alt="" draggable="false"></div>
+        <div class="layer" id="layer-main"><img id="slide-img" alt="" draggable="false"></div>
         <div id="img-loading" class="img-msg">Loading…</div>
+        <button type="button" id="var-prev" class="var-nav left" title="Previous photo (↑)" aria-label="Previous photo" hidden>‹</button>
+        <button type="button" id="var-next" class="var-nav right" title="Next photo (↓)" aria-label="Next photo" hidden>›</button>
+        <div id="var-bar" class="var-bar" hidden><span id="var-dots" class="var-dots"></span><span id="var-count" class="var-count"></span></div>
         <div id="block-toast" class="block-toast" hidden></div>
         <div id="pause-overlay" class="pause-overlay" hidden>
           <div>Paused</div>
@@ -131,13 +147,13 @@
       <aside id="panel" class="panel">
         <div id="study-label" class="study-label" hidden></div>
         <ol id="questions" class="questions"></ol>
-        <div id="study-notes" class="study-notes" hidden></div>
+        <div id="study-notes"></div>
       </aside>
     </div>
 
     <div class="exam-bottom">
       <button type="button" id="prev-btn" class="nav">← Previous</button>
-      <button type="button" id="hint-btn" class="nav hint">💡 Hint</button>
+      <button type="button" id="hint-btn" class="nav hint">Hint</button>
       <button type="button" id="next-btn" class="nav primary">Next →</button>
     </div>
   </section>
@@ -145,6 +161,7 @@
   <!-- ============ RESULTS / REVIEW ============ -->
   <section id="results" class="screen" hidden>
     <header class="results-head">
+      <p class="eyebrow">Lengible</p>
       <h1 id="results-title">Results</h1>
       <div id="score-big" class="score-big"></div>
       <p id="score-sub" class="note"></p>
@@ -174,8 +191,13 @@
     </div>
   </div>
 
-  <!-- Lightbox for review images -->
-  <div id="lightbox" class="lightbox" hidden><img alt="" id="lightbox-img"></div>
+  <!-- Lightbox for review images (with arrows for other photos) -->
+  <div id="lightbox" class="lightbox" hidden>
+    <img alt="" id="lightbox-img">
+    <button type="button" id="lb-prev" class="var-nav left" aria-label="Previous photo" hidden>‹</button>
+    <button type="button" id="lb-next" class="var-nav right" aria-label="Next photo" hidden>›</button>
+    <span id="lb-count" class="lb-count"></span>
+  </div>
 
   <script src="bank.js"></script>
   <script src="app.js"></script>

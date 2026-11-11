@@ -83,6 +83,11 @@ function cleanQuestions(list, rel, warnings) {
   return out;
 }
 
+/** "cirrhosis__2" and "cirrhosis (2)" are extra photos (variants) of "cirrhosis". */
+function variantBase(base) {
+  return base.replace(/__\d+$/, '').replace(/\s*\(\d+\)$/, '');
+}
+
 function walk(dir, parts, items, warnings) {
   let entries;
   try {
@@ -91,6 +96,7 @@ function walk(dir, parts, items, warnings) {
     return;
   }
   entries.sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
+  const groups = new Map(); // variant base -> image file names
   for (const ent of entries) {
     if (ent.name.startsWith('.')) continue;
     const full = path.join(dir, ent.name);
@@ -100,42 +106,66 @@ function walk(dir, parts, items, warnings) {
     }
     const ext = path.extname(ent.name).toLowerCase();
     if (!IMAGE_EXT.has(ext)) continue;
-    const rel = path.relative(ROOT, full);
     if (parts.length < 1) {
-      warnings.push(`Skipped ${rel}: images must be inside bank/<Course>/<Category>/`);
+      warnings.push(`Skipped ${path.relative(ROOT, full)}: images must be inside bank/<Course>/<Category>/`);
       continue;
     }
+    const key = variantBase(path.basename(ent.name, ext));
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(ent.name);
+  }
+
+  for (const [key, files] of groups) {
     const course = parts[0];
     const category = parts.length >= 2 ? parts[1] : 'General';
     const sub = parts.slice(2).join(' / ');
-    const base = path.basename(ent.name, path.extname(ent.name));
-    const side = readSidecar(path.join(dir, base + '.json'), warnings) || {};
+    // primary = the file without a __N suffix (else the first one)
+    files.sort((a, b) => (variantBase(path.basename(a, path.extname(a))) === path.basename(a, path.extname(a)) ? -1 : 0) -
+      (variantBase(path.basename(b, path.extname(b))) === path.basename(b, path.extname(b)) ? -1 : 0) || a.localeCompare(b, undefined, { numeric: true }));
+    const primary = files[0];
+    const base = path.basename(primary, path.extname(primary));
+    let side = readSidecar(path.join(dir, key + '.json'), warnings) || readSidecar(path.join(dir, base + '.json'), warnings) || {};
+    const rel = path.relative(ROOT, path.join(dir, primary));
+
+    // photo order: an explicit "images" list in the JSON wins, then any other variants in the folder
+    let images = [];
+    if (Array.isArray(side.images)) {
+      for (const im of side.images) {
+        const f = typeof im === 'string' ? im : im && im.file;
+        if (f && files.includes(f)) images.push({ file: f, studyOnly: !!(im && im.studyOnly) });
+      }
+    }
+    for (const f of files) if (!images.some((x) => x.file === f)) images.push({ file: f, studyOnly: false });
 
     // extract.py records which file a label was written for; if you renamed the picture, the new name wins.
-    const renamed = side.image && side.image !== ent.name;
+    const renamed = side.image && !files.includes(side.image);
     const sideLabel = !renamed && side.label && String(side.label).trim() ? String(side.label).trim() : '';
-    let label = sideLabel || cleanLabel(base);
+    const label = sideLabel || cleanLabel(key);
     let type = side.type ? String(side.type).trim().toLowerCase() : '';
     if (type && !VALID_TYPES.has(type)) {
       if (type.includes('|')) type = ''; // untouched template value "slide | pot | photomicrograph"
       else if (/micro/.test(type)) type = 'photomicrograph';
       else if (/pot|gross|jar/.test(type)) type = 'pot';
     }
-    const unlabelled = /^unlabel+ed\b/i.test(base) && !sideLabel;
+    const unlabelled = /^unlabel+ed\b/i.test(key) && !sideLabel;
+    const imgs = images.map((x) => (x.studyOnly ? { src: encodePath(path.relative(ROOT, path.join(dir, x.file))), studyOnly: true }
+      : { src: encodePath(path.relative(ROOT, path.join(dir, x.file))) }));
+    const examImg = imgs.find((x) => !x.studyOnly);
 
     const item = {
       id: items.length,
       course,
       category,
-      src: encodePath(rel),
+      src: (examImg || imgs[0]).src,
       label,
       questions: cleanQuestions(side.questions, rel, warnings),
     };
+    if (imgs.length > 1) item.images = imgs;
     if (sub) item.sub = sub;
     if (type) item.type = type;
     if (unlabelled) item.unlabelled = true;
-    if (side.studyOnly === true) item.studyOnly = true; // e.g. the answer is written on the photo
-    if (Array.isArray(side.notes) && side.notes.length) item.notes = side.notes.map(String).filter(Boolean).slice(0, 12);
+    if (side.studyOnly === true || !examImg) item.studyOnly = true; // e.g. the answer is written on every photo
+    if (Array.isArray(side.notes) && side.notes.length) item.notes = side.notes.map(String).filter(Boolean).slice(0, 30);
     else if (typeof side.notes === 'string' && side.notes.trim()) item.notes = [side.notes.trim()];
     items.push(item);
   }
@@ -181,10 +211,11 @@ function main() {
     'window.BANK = ' + JSON.stringify(bank) + ';\n';
   fs.writeFileSync(OUT_FILE, js);
 
-  console.log(`bank.js written: ${items.length} images`);
+  const photos = items.reduce((n, i) => n + (i.images ? i.images.length : 1), 0);
+  console.log(`bank.js written: ${items.length} specimens, ${photos} photos`);
   for (const c of courses) {
     const n = c.categories.reduce((s, x) => s + x.count, 0);
-    console.log(`  ${c.name}: ${n} images in ${c.categories.length} categories (${c.categories.map((x) => `${x.name} ${x.count}`).join(', ')})`);
+    console.log(`  ${c.name}: ${n} specimens in ${c.categories.length} categories (${c.categories.map((x) => `${x.name} ${x.count}`).join(', ')})`);
   }
   const unl = items.filter((i) => i.unlabelled).length;
   if (unl) console.log(`  ${unl} unlabelled image(s): shown in Study mode only. Rename them to use them in exams.`);
