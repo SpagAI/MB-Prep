@@ -74,6 +74,7 @@ function cleanQuestions(list, rel, warnings) {
     if (!ans) warnings.push(`${rel}: question "${text}" has no answer`);
     const item = { q: text, a: ans };
     if (q.added) item.added = true; // answer written by Lengible (no source file answered it)
+    if (q.badge && String(q.badge).trim()) item.badge = String(q.badge).trim().slice(0, 30); // e.g. 'Marking scheme'
     if (q.hint && String(q.hint).trim()) item.hint = String(q.hint).trim();
     if (Array.isArray(q.options)) {
       const opts = q.options.map((o) => String(o).trim()).filter(Boolean);

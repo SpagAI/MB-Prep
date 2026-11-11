@@ -507,7 +507,7 @@
       src = [{ q: `Identify this ${kind}`, a: item.label, auto: true }];
     }
     return src.map((q) => {
-      const out = { q: q.q, a: q.a || '', hint: q.hint || '', identify: isIdentify(q, item), added: !!q.added };
+      const out = { q: q.q, a: q.a || '', hint: q.hint || '', identify: isIdentify(q, item), added: !!q.added, badge: q.badge || '' };
       if (!out.hint && out.identify && item.label) {
         const where = catName(item.category) + (item.sub ? ' › ' + item.sub : '');
         out.hint = `Area: ${where}. The answer starts with “${String(out.a || item.label).trim().charAt(0).toUpperCase()}”.`;
@@ -744,7 +744,8 @@
   });
 
   // ---- case sheets (Chem Path): scenario + result tables, drawn by the app instead of a photo
-  const answerTag = (q) => (q.added ? '<span class="by-l" title="No file answered this; written by Lengible">Lengible</span>' : '');
+  const answerTag = (q) => (q.added ? '<span class="by-l" title="No file answered this; written by Lengible">Lengible</span>'
+    : q.badge ? `<span class="by-s" title="From your files">${esc(q.badge)}</span>` : '');
   function tableHTML(t, flags) {
     const rows = t.rows || [];
     const nv = Math.max(1, ...rows.map((r) => (r.v ? r.v.length : 0)));

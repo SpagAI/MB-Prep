@@ -503,3 +503,6 @@ body.mode-distinction .dist-only { display: flex; flex-wrap: wrap; }
 #review.no-pics .r-case { display: none; }
 @media (max-width: 899px) { .stage.case-mode { flex-basis: 64%; } }
 @media (max-width: 600px) { .case-sheet { font-size: .92rem; } .rt td, .rt th { padding: 6px 7px; } }
+.by-s { display: inline-block; margin-left: 8px; padding: 0 7px; border-radius: 999px; font-size: .68em; font-weight: 800; letter-spacing: .04em; vertical-align: .12em;
+  color: #86efac; border: 1px solid rgba(52, 211, 153, .5); background: rgba(52, 211, 153, .1); }
+#results .by-s { color: var(--ok); }
