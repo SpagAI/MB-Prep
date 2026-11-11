@@ -18,7 +18,7 @@ const BANK_DIR = path.join(ROOT, 'bank');
 const OUT_FILE = path.join(ROOT, 'bank.js');
 const IMAGE_EXT = new Set(['.jpg', '.jpeg', '.png', '.webp', '.gif', '.bmp', '.avif']);
 const COURSE_ORDER = ['Histopathology', 'Chemical Pathology', 'MMP', 'Haematology'];
-const VALID_TYPES = new Set(['slide', 'pot', 'photomicrograph']);
+const VALID_TYPES = new Set(['slide', 'pot', 'photomicrograph', 'case', 'apparatus', 'diagram', 'viva', 'drill', 'cue card']);
 
 /**
  * "hepatocellular-carcinoma" -> "Hepatocellular carcinoma"
@@ -73,6 +73,7 @@ function cleanQuestions(list, rel, warnings) {
     if (!text) continue; // blank template rows are ignored
     if (!ans) warnings.push(`${rel}: question "${text}" has no answer`);
     const item = { q: text, a: ans };
+    if (q.added) item.added = true; // answer written by Lengible (no source file answered it)
     if (q.hint && String(q.hint).trim()) item.hint = String(q.hint).trim();
     if (Array.isArray(q.options)) {
       const opts = q.options.map((o) => String(o).trim()).filter(Boolean);
@@ -97,6 +98,7 @@ function walk(dir, parts, items, warnings) {
   }
   entries.sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
   const groups = new Map(); // variant base -> image file names
+  const jsons = [];
   for (const ent of entries) {
     if (ent.name.startsWith('.')) continue;
     const full = path.join(dir, ent.name);
@@ -105,7 +107,9 @@ function walk(dir, parts, items, warnings) {
       continue;
     }
     const ext = path.extname(ent.name).toLowerCase();
+    if (ext === '.json') { jsons.push(ent.name); continue; }
     if (!IMAGE_EXT.has(ext)) continue;
+    if (/\.fig\d+$/i.test(path.basename(ent.name, ext))) continue; // figure inside a case sheet, not a slide of its own
     if (parts.length < 1) {
       warnings.push(`Skipped ${path.relative(ROOT, full)}: images must be inside bank/<Course>/<Category>/`);
       continue;
@@ -165,9 +169,50 @@ function walk(dir, parts, items, warnings) {
     if (type) item.type = type;
     if (unlabelled) item.unlabelled = true;
     if (side.studyOnly === true || !examImg) item.studyOnly = true; // e.g. the answer is written on every photo
-    if (Array.isArray(side.notes) && side.notes.length) item.notes = side.notes.map(String).filter(Boolean).slice(0, 30);
-    else if (typeof side.notes === 'string' && side.notes.trim()) item.notes = [side.notes.trim()];
+    addExtras(item, side, dir);
     items.push(item);
+  }
+
+  // Case slides: a JSON file with a "case" (scenario + result tables) and no picture of its own.
+  for (const name of jsons) {
+    const key = path.basename(name, '.json');
+    if (groups.has(key) || groups.has(variantBase(key)) || parts.length < 1) continue;
+    const side = readSidecar(path.join(dir, name), warnings);
+    if (!side || !(side.case || side.stem)) continue;
+    const rel = path.relative(ROOT, path.join(dir, name));
+    const item = {
+      id: items.length,
+      course: parts[0],
+      category: parts.length >= 2 ? parts[1] : 'General',
+      label: side.label && String(side.label).trim() ? String(side.label).trim() : cleanLabel(key),
+      questions: cleanQuestions(side.questions, rel, warnings),
+    };
+    if (parts.length > 2) item.sub = parts.slice(2).join(' / ');
+    const type = side.type ? String(side.type).trim().toLowerCase() : '';
+    if (VALID_TYPES.has(type)) item.type = type;
+    if (side.studyOnly === true) item.studyOnly = true;
+    addExtras(item, side.case ? side : Object.assign({}, side, { case: { stem: side.stem } , stem: undefined }), dir);
+    items.push(item);
+  }
+}
+
+/** Notes, case sheet, scenario line and option settings shared by picture slides and case slides. */
+function addExtras(item, side, dir) {
+  if (Array.isArray(side.notes) && side.notes.length) item.notes = side.notes.map(String).filter(Boolean).slice(0, 40);
+  else if (typeof side.notes === 'string' && side.notes.trim()) item.notes = [side.notes.trim()];
+  if (side.stem && String(side.stem).trim()) item.stem = String(side.stem).trim();
+  if (side.test && String(side.test).trim() && !side.case) item.test = String(side.test).trim();
+  if (side.noOptions) item.noOptions = true;
+  if (side.case && typeof side.case === 'object') {
+    const c = {};
+    for (const k of ['test', 'stem', 'after']) if (side.case[k]) c[k] = String(side.case[k]);
+    if (Array.isArray(side.case.tables)) c.tables = side.case.tables;
+    if (Array.isArray(side.case.figs)) {
+      c.figs = side.case.figs.filter((f) => f && f.file && fs.existsSync(path.join(dir, f.file)))
+        .map((f) => Object.assign({ src: encodePath(path.relative(ROOT, path.join(dir, f.file))) }, f.caption ? { caption: String(f.caption) } : {}));
+      if (!c.figs.length) delete c.figs;
+    }
+    if (Object.keys(c).length) item.case = c;
   }
 }
 
@@ -211,16 +256,17 @@ function main() {
     'window.BANK = ' + JSON.stringify(bank) + ';\n';
   fs.writeFileSync(OUT_FILE, js);
 
-  const photos = items.reduce((n, i) => n + (i.images ? i.images.length : 1), 0);
-  console.log(`bank.js written: ${items.length} specimens, ${photos} photos`);
+  const photos = items.reduce((n, i) => n + (i.images ? i.images.length : i.src ? 1 : 0), 0);
+  const cases = items.filter((i) => !i.src).length;
+  console.log(`bank.js written: ${items.length} slides, ${photos} photos${cases ? `, ${cases} case sheets` : ''}`);
   for (const c of courses) {
     const n = c.categories.reduce((s, x) => s + x.count, 0);
-    console.log(`  ${c.name}: ${n} specimens in ${c.categories.length} categories (${c.categories.map((x) => `${x.name} ${x.count}`).join(', ')})`);
+    console.log(`  ${c.name}: ${n} slides in ${c.categories.length} categories (${c.categories.map((x) => `${x.name} ${x.count}`).join(', ')})`);
   }
   const unl = items.filter((i) => i.unlabelled).length;
   if (unl) console.log(`  ${unl} unlabelled image(s): shown in Study mode only. Rename them to use them in exams.`);
   const so = items.filter((i) => i.studyOnly).length;
-  if (so) console.log(`  ${so} image(s) marked "studyOnly" (answer visible in the picture): Study mode only.`);
+  if (so) console.log(`  ${so} slide(s) marked "studyOnly" (answer visible, or a study card): Study mode only.`);
   if (warnings.length) {
     console.log(`\n${warnings.length} warning(s):`);
     warnings.slice(0, 50).forEach((w) => console.log('  - ' + w));

@@ -157,8 +157,8 @@
 
   // ---------------------------------------------------------------- home screen
   function renderHome() {
-    const photoCount = ITEMS.reduce((t, i) => t + (i.images ? i.images.length : 1), 0);
-    $('#bank-total').textContent = ITEMS.length ? `${plural(ITEMS.length, 'specimen')} · ${plural(photoCount, 'photo')}` : 'empty bank';
+    const photoCount = ITEMS.reduce((t, i) => t + (i.images ? i.images.length : i.src ? 1 : 0), 0);
+    $('#bank-total').textContent = ITEMS.length ? `${plural(ITEMS.length, 'slide')} · ${plural(photoCount, 'photo')}` : 'empty bank';
     $('#bank-missing').hidden = ITEMS.length > 0;
     renderCourses();
     renderModes();
@@ -182,7 +182,7 @@
       b.className = 'course-btn' + (selCourses.has(c.name) ? ' on' : '') + (n ? '' : ' empty');
       b.style.setProperty('--c', courseColor(c.name));
       b.setAttribute('aria-pressed', selCourses.has(c.name));
-      b.innerHTML = `${esc(c.name)}<small>${n ? plural(n, 'specimen') : 'No pictures yet'}</small>`;
+      b.innerHTML = `${esc(c.name)}<small>${n ? plural(n, 'slide') : 'Nothing added yet'}</small>`;
       if (n) b.addEventListener('click', () => toggleCourse(c.name));
       else { b.disabled = true; b.title = 'No pictures for this course yet: add its files to the bank'; }
       wrap.appendChild(b);
@@ -303,7 +303,7 @@
         const row = document.createElement('div');
         row.className = 'pc-row';
         row.style.setProperty('--c', courseColor(course));
-        row.innerHTML = `<span class="pc-name">${esc(course)}<small>${plural(list.length, 'specimen')} available</small></span>` +
+        row.innerHTML = `<span class="pc-name">${esc(course)}<small>${plural(list.length, 'slide')} available</small></span>` +
           [5, 10, 20].map((n) => `<button type="button" class="pill ${cur === n ? 'on' : ''}" data-n="${n}" ${n > list.length ? 'disabled' : ''}>${n}</button>`).join('') +
           `<button type="button" class="pill ${cur === 'all' ? 'on' : ''}" data-n="all">All</button>
           <input type="number" min="0" max="${list.length}" step="1" value="${cur === 'all' ? list.length : Math.min(cur, list.length)}" aria-label="Slides from ${esc(course)}">`;
@@ -422,7 +422,7 @@
       start.disabled = true;
       return;
     }
-    let txt = `<strong>${plural(usable.length, 'specimen')}</strong> from ${esc(selectionText(usable))}`;
+    let txt = `<strong>${plural(usable.length, 'slide')}</strong> from ${esc(selectionText(usable))}`;
     txt += ` · <strong>${n}</strong> slide${n === 1 ? '' : 's'}`;
     if (plan.size > 1) {
       txt += ` (${[...plan].map(([c, k]) => `${esc(c)} ${k}`).join(', ')})`;
@@ -464,8 +464,13 @@
     lastNav: 0,
   };
 
+  // Chem Path style slides: options only when the answer IS the slide's name (a diagnosis or an apparatus)
+  const CASE_TYPES = new Set(['case', 'apparatus', 'diagram', 'viva', 'drill', 'cue card']);
+  const kindOf = (x) => (x.type === 'apparatus' || x.type === 'diagram' ? 'thing' : CASE_TYPES.has(x.type) ? 'dx' : 'other');
   function isIdentify(q, item) {
     if (q.auto) return true;
+    if (item.noOptions) return false;
+    if (CASE_TYPES.has(item.type)) return !!norm(q.a) && norm(q.a) === norm(item.label);
     if (/^\s*(identify|spot|name the (specimen|slide|organism|lesion|condition|item|equipment|cell)|what is (this|the (specimen|slide|organism|lesion|condition)))/i.test(q.q)) return true;
     return norm(q.a) && norm(q.a) === norm(item.label);
   }
@@ -474,10 +479,12 @@
     const target = norm(correct);
     const seen = new Set([target]);
     const out = [];
+    const k = kindOf(item);
+    const pool = ITEMS.filter((x) => !x.noOptions && x.type !== 'cue card' && kindOf(x) === k);
     const tiers = [
-      ITEMS.filter((x) => x.course === item.course && x.category === item.category),
-      ITEMS.filter((x) => x.course === item.course && x.category !== item.category),
-      ITEMS.filter((x) => x.course !== item.course),
+      pool.filter((x) => x.course === item.course && x.category === item.category),
+      pool.filter((x) => x.course === item.course && x.category !== item.category),
+      pool.filter((x) => x.course !== item.course),
     ];
     for (const tier of tiers) {
       for (const x of shuffle(tier.slice())) {
@@ -494,12 +501,13 @@
 
   function buildQuestions(item, mode) {
     let src = item.questions && item.questions.length ? item.questions : null;
+    if (!src && (item.case || item.type === 'cue card')) src = []; // study card: notes only
     if (!src) {
       const kind = item.type || 'specimen';
       src = [{ q: `Identify this ${kind}`, a: item.label, auto: true }];
     }
     return src.map((q) => {
-      const out = { q: q.q, a: q.a || '', hint: q.hint || '', identify: isIdentify(q, item) };
+      const out = { q: q.q, a: q.a || '', hint: q.hint || '', identify: isIdentify(q, item), added: !!q.added };
       if (!out.hint && out.identify && item.label) {
         const where = catName(item.category) + (item.sub ? ' › ' + item.sub : '');
         out.hint = `Area: ${where}. The answer starts with “${String(out.a || item.label).trim().charAt(0).toUpperCase()}”.`;
@@ -643,6 +651,7 @@
   const AUTO_MS = 4000;
 
   function photosFor(it, exam) {
+    if (!it.src && !(it.images && it.images.length)) return []; // case sheet, no photo
     const all = it.images && it.images.length ? it.images : [{ src: it.src }];
     const list = exam ? all.filter((x) => !x.studyOnly) : all; // exam: only neat photos, never ones with the answer on them
     return list.length ? list : [{ src: it.src }];
@@ -716,14 +725,14 @@
   // ---- notes: collapsible box (Study mode and the answer key; never during an exam)
   function noteLine(n) {
     const m = String(n).match(/^([A-Z][A-Za-z /&()'-]{1,40}):\s*([\s\S]*)$/);
-    const cls = /^Key point:/.test(n) ? 'added' : /^Exam frequency:/.test(n) ? 'freq' : '';
+    const cls = /^(Key point|Cue|How it works|Memory)\b/.test(n) ? 'added' : /^Check:/.test(n) ? 'check' : /^Exam frequency:/.test(n) ? 'freq' : '';
     if (!m) return `<li class="${cls}">${esc(n)}</li>`;
     return `<li class="${cls}"><b>${esc(m[1])}:</b> ${esc(m[2])}</li>`;
   }
   function notesHTML(notes) {
     if (!notes || !notes.length) return '';
     return `<section class="notes"><button type="button" class="notes-toggle" aria-expanded="false">Notes <span class="count">${notes.length}</span><span class="chev" aria-hidden="true"></span></button>
-      <div class="notes-body"><div class="notes-inner"><ul class="notes-list">${notes.map(noteLine).join('')}</ul></div></div></section>`;
+      <div class="notes-body"><div class="notes-inner"><ul class="notes-list">${notes.map(noteLine).join('')}</ul>${notes.some((n) => /^(Key point|Cue|How it works|Memory|Check:)/.test(n)) ? '<p class="notes-legend"><i class="sw added"></i>Lengible\'s study aids · <i class="sw check"></i>check against your notes</p>' : ''}</div></div></section>`;
   }
   document.addEventListener('click', (e) => {
     const t = e.target.closest('.notes-toggle');
@@ -732,6 +741,52 @@
     const open = !box.classList.contains('open');
     box.classList.toggle('open', open);
     t.setAttribute('aria-expanded', open);
+  });
+
+  // ---- case sheets (Chem Path): scenario + result tables, drawn by the app instead of a photo
+  const answerTag = (q) => (q.added ? '<span class="by-l" title="No file answered this; written by Lengible">Lengible</span>' : '');
+  function tableHTML(t, flags) {
+    const rows = t.rows || [];
+    const nv = Math.max(1, ...rows.map((r) => (r.v ? r.v.length : 0)));
+    const hasU = rows.some((r) => r.u), hasR = rows.some((r) => r.r);
+    const head = (t.cols && t.cols.length ? t.cols.slice(0, nv + 1) : ['Test'].concat(nv === 1 ? ['Result'] : Array.from({ length: nv }, (_, k) => `Result ${k + 1}`)))
+      .concat(hasU ? ['Units'] : [], hasR ? ['Reference'] : []);
+    const ncol = head.length;
+    let h = `<div class="rt-wrap"><table class="rt">${t.caption ? `<caption>${esc(t.caption)}</caption>` : ''}<thead><tr>${head.map((c) => `<th>${esc(c)}</th>`).join('')}</tr></thead><tbody>`;
+    for (const r of rows) {
+      if (r.h) { h += `<tr class="sub"><td colspan="${ncol}">${esc(r.h)}</td></tr>`; continue; }
+      h += `<tr><td class="n">${esc(r.n)}</td>`;
+      for (let k = 0; k < nv; k++) {
+        const v = (r.v || [])[k] || '';
+        const f = flags && r.f ? r.f[k] : '';
+        h += `<td class="v${v.length > 18 ? ' long' : ''}${f ? ' f' + f : ''}">${esc(v)}${f ? `<span class="fl ${f}" aria-label="${f === 'H' ? 'high' : 'low'}">${f === 'H' ? '↑' : '↓'}</span>` : ''}</td>`;
+      }
+      if (hasU) h += `<td class="u">${esc(r.u || '')}</td>`;
+      if (hasR) h += `<td class="r">${esc(r.r || '')}</td>`;
+      h += '</tr>';
+    }
+    return h + '</tbody></table></div>';
+  }
+  function caseHTML(it, flags) {
+    const c = it.case;
+    if (!c) return '';
+    let h = '<article class="case-sheet">';
+    if (c.test) h += `<div class="case-test">Test of interest · <b>${esc(c.test)}</b></div>`;
+    if (c.stem) h += `<p class="case-stem">${esc(c.stem)}</p>`;
+    for (const t of c.tables || []) h += tableHTML(t, flags);
+    (c.figs || []).forEach((f, k) => {
+      h += `<figure class="case-fig"><img src="${esc(f.src)}" alt="${esc(f.caption || 'Results')}" data-fig="${k}" loading="lazy">${f.caption ? `<figcaption>${esc(f.caption)} · tap to enlarge</figcaption>` : ''}</figure>`;
+    });
+    if (c.after && flags) h += `<div class="case-after"><b>What happened next (from your notes)</b>${esc(c.after)}</div>`;
+    if (flags && (c.tables || []).some((t) => (t.rows || []).some((r) => r.f))) h += '<p class="case-key"><span class="fl H">↑</span> high · <span class="fl L">↓</span> low — shown in Study mode and the answer key only</p>';
+    return h + '</article>';
+  }
+  document.addEventListener('click', (e) => {
+    const im = e.target.closest('.case-fig img');
+    if (!im) return;
+    const sheet = im.closest('[data-item]');
+    const it = sheet ? ITEMS[+sheet.dataset.item] : null;
+    if (it && it.case && it.case.figs) openLightbox(it.case.figs, +im.dataset.fig);
   });
 
   function showSlide(i) {
@@ -763,13 +818,29 @@
     img.onload = () => { $('#img-loading').hidden = true; img.style.visibility = 'visible'; };
     img.onerror = () => { $('#img-loading').hidden = false; $('#img-loading').textContent = 'Image could not be loaded. Re-run node build-bank.js'; };
     V.anim.forEach((a) => a.cancel()); V.anim = []; $('#layer-ghost').style.visibility = 'hidden';
-    V.list = photosFor(it, exam);
-    V.i = 0; V.lastUser = 0;
-    showPhoto(0, 0);
-    startAuto();
+    const card = $('#case-card');
+    const isCase = !!it.case && !(it.images && it.images.length) && !it.src;
+    stage.classList.toggle('case-mode', isCase);
+    card.hidden = !isCase;
+    if (isCase) {
+      card.innerHTML = caseHTML(it, !exam);
+      card.dataset.item = it.id;
+      card.scrollTop = 0;
+      $('#img-loading').hidden = true;
+      img.onload = null; img.onerror = null; img.removeAttribute('src');
+      V.list = []; V.i = 0;
+      stopAuto(); renderVarBar();
+    } else {
+      card.innerHTML = '';
+      V.list = photosFor(it, exam);
+      V.i = 0; V.lastUser = 0;
+      showPhoto(0, 0);
+      startAuto();
+    }
     // Preload only the next slide (its first photo).
     const next = S.slides[i + 1];
-    if (next) { preloadImg = new Image(); preloadImg.src = photosFor(next.item, exam)[0].src; }
+    const nextPic = next && photosFor(next.item, exam)[0];
+    if (nextPic) { preloadImg = new Image(); preloadImg.src = nextPic.src; }
 
     // Study label
     const lab = $('#study-label');
@@ -779,6 +850,10 @@
       lab.innerHTML = `${esc(it.label)}<span class="meta">${esc(it.course)} › ${esc(catName(it.category))}${it.sub ? ' › ' + esc(it.sub) : ''}${typ ? ' · ' + esc(typ) : ''}</span>`;
     }
     $('#study-notes').innerHTML = exam ? '' : notesHTML(it.notes);
+    const stemBox = $('#stem');
+    const stemText = !isCase ? (it.stem || (it.case && it.case.stem) || '') : '';
+    stemBox.hidden = !stemText;
+    stemBox.textContent = stemText;
 
     renderQuestions();
     $('#panel').scrollTop = 0;
@@ -822,12 +897,13 @@
     }
     note.hidden = !paper;
     if (paper) note.textContent = `✎ Write your answers on paper as “Slide ${S.idx + 1}”. All answers are shown at the end.`;
+    if (!slide.qs.length) list.innerHTML = '<li class="no-q">Study card — read the table and open the Notes.</li>';
     slide.qs.forEach((q, qi) => {
       const li = document.createElement('li');
       const a = slide.ans[qi] || {};
       let html = `<div class="q-text">${esc(q.q)}</div>`;
       if (m === 'study') {
-        html += `<div class="q-answer">${esc(q.a || '—')}</div>`;
+        html += `<div class="q-answer">${esc(q.a || '—')}${answerTag(q)}</div>`;
         if (q.hint && !q.identify) html += `<div class="q-hint">${esc(q.hint)}</div>`;
       } else if (m === 'easy') {
         if (q.options) {
@@ -849,7 +925,7 @@
           if (!a.revealed) {
             html += `<div class="reveal-row"><button type="button" data-reveal="${qi}">Show answer</button></div>`;
           } else {
-            html += `<div class="q-answer">${esc(q.a || '—')}</div>
+            html += `<div class="q-answer">${esc(q.a || '—')}${answerTag(q)}</div>
               <div class="reveal-row"><button type="button" class="yes ${a.self === true ? 'on' : ''}" data-self="${qi}" data-v="1">✓ I got it</button>
               <button type="button" class="no ${a.self === false ? 'on' : ''}" data-self="${qi}" data-v="0">✗ I missed it</button></div>`;
           }
@@ -1053,8 +1129,9 @@
   }
 
   stage.addEventListener('contextmenu', (e) => e.preventDefault());
+  const caseMode = () => stage.classList.contains('case-mode');
   stage.addEventListener('pointerdown', (e) => {
-    if (e.target.closest('button')) return;
+    if (e.target.closest('button') || caseMode()) return;
     stage.setPointerCapture(e.pointerId);
     pointers.set(e.pointerId, localPoint(e));
     if (pointers.size === 1) {
@@ -1101,6 +1178,7 @@
   stage.addEventListener('pointerup', endPointer);
   stage.addEventListener('pointercancel', endPointer);
   stage.addEventListener('wheel', (e) => {
+    if (caseMode()) return; // let the case sheet scroll
     e.preventDefault();
     const p = localPoint(e);
     zoomAt(Z.s * (e.deltaY < 0 ? 1.2 : 1 / 1.2), p.x, p.y);
@@ -1267,13 +1345,16 @@
       const div = document.createElement('div');
       div.className = 'review-item';
       const photos = photosFor(it, false);
-      let html = `<div class="pic"><img loading="lazy" src="${esc(photos[0].src)}" alt="${esc(it.label)}" data-si="${si}">${photos.length > 1 ? `<span class="pic-count">${photos.length} photos</span>` : ''}</div><div>
+      if (!photos.length) div.classList.add('is-case');
+      let html = (photos.length ? `<div class="pic"><img loading="lazy" src="${esc(photos[0].src)}" alt="${esc(it.label)}" data-si="${si}">${photos.length > 1 ? `<span class="pic-count">${photos.length} photos</span>` : ''}</div>` : '') + `<div>
         <div class="r-label">Slide ${si + 1}: ${esc(it.label)}</div>
         <div class="r-meta">${esc(it.course)} › ${esc(catName(it.category))}${it.type ? ' · ' + esc(it.type) : ''}${s.hintUsed ? ' · hint used' : ''}</div>`;
+      if (it.case) html += `<details class="r-case pic" data-item="${it.id}"><summary>Case and results</summary>${caseHTML(it, true)}</details>`;
+      else if (it.stem) html += `<p class="r-stem">${esc(it.stem)}</p>`;
       s.qs.forEach((q, qi) => {
         const a = s.ans[qi] || {};
         html += `<div class="r-q"><div class="qq"><span class="qnum">${qi + 1}.</span>${esc(q.q)}</div>
-          <div class="row"><span class="k">Answer</span><span class="ans">${esc(q.a || '—')}</span></div>`;
+          <div class="row"><span class="k">Answer</span><span class="ans">${esc(q.a || '—')}${answerTag(q)}</span></div>`;
         if (m === 'easy') {
           let yours;
           let tag;
@@ -1431,7 +1512,7 @@
   });
 
   // Test hook (used by the automated checks; harmless otherwise)
-  window.__PP = { S, T, spreadByCategory, distractors, buildQuestions, ITEMS };
+  window.__PP = { S, T, spreadByCategory, distractors, buildQuestions, ITEMS, showSlide };
 
   renderHome();
 })();

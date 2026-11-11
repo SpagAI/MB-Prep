@@ -40,6 +40,10 @@ Distinction mode always has a timer (1 min by default).
 
 **Several photos of one specimen** (different angles or years) are shown on one slide: they slide by themselves every 4 seconds, and you can use the ‹ › arrows, swipe, or `↑` `↓`. Photos are always shown whole, never cut off. In exams only the neat photos are used; a photo with the answer visible on it appears in Study mode only.
 
+**Case slides (Chemical Pathology):** a clinical scenario with its result sheet is drawn by the app on a clean "lab report" card instead of a photo, with the questions beside it. Some cases also show a screenshot of the original result table (tap it to enlarge). In Study mode and the answer key, results above the range get a red ↑ and results below get a blue ↓. During an exam they are hidden, so you have to spot them yourself. Apparatus (glucometer, urinometer, bottles, gel plates) are normal photo slides, with any scenario shown above the questions.
+Each Chem Path topic also has a **cue card**: a study-only "if you see this → think that" table.
+Answers that none of your files gave are tagged **Lengible**, so you know they weren't in your notes.
+
 **Notes:** extra information that wasn't asked (gross features, causes, viva points, how often it was set) is in a **Notes** box that opens and closes with a tap. It shows in Study mode and in the answer key, never during an exam.
 A presentation clicker also works (it sends Page Down / Page Up).
 **Zoom:** click/tap the picture, pinch, scroll the mouse wheel, or use the ＋ / － buttons.
@@ -160,11 +164,23 @@ For more, put a JSON file with the **same name** next to the picture:
 }
 ```
 
-- `type`: `slide`, `pot` or `photomicrograph` (optional).
+- `type`: `slide`, `pot`, `photomicrograph`, or for Chem Path `case`, `apparatus`, `diagram`, `viva`, `drill`, `cue card` (optional).
 - `label`: optional; overrides the file name.
-- `notes`: optional list of extra facts, shown in the collapsible Notes box (Study mode and answer key only).
+- `notes`: optional list of extra facts, shown in the collapsible Notes box (Study mode and answer key only). Lines starting with `Cue:`, `How it works:` or `Key point:` are styled as study aids; lines starting with `Check:` are styled as warnings.
 - `images`: optional list setting the photo order, e.g. `[{"file": "cirrhosis.jpg"}, {"file": "cirrhosis__2.jpg", "studyOnly": true}]`. The first is shown first; `studyOnly` keeps that one photo out of exams.
 - `hint`: optional; shown when you press Hint in Easy Money.
+- `stem`: optional scenario text shown above the questions (e.g. "A 14-year-old diabetic… Rothera's test was done").
+- `case`: makes a **case slide**, and a JSON file with a `case` doesn't need a picture at all:
+  ```json
+  { "label": "Primary hyperaldosteronism (Conn's syndrome)", "type": "case",
+    "case": { "test": "Plasma aldosterone", "stem": "A 47-year-old hypertensive…",
+      "tables": [ { "rows": [ { "n": "K", "v": ["2.7"], "u": "mmol/L", "r": "3.2-4.8", "f": ["L"] } ] } ],
+      "figs": [ { "file": "conn.fig1.jpg", "caption": "Original result sheet" } ] },
+    "questions": [ { "q": "What is the single most likely diagnosis?", "a": "Primary hyperaldosteronism (Conn's syndrome)" } ] }
+  ```
+  `f` marks a value high (`H`) or low (`L`). Figure files are named `<name>.fig1.jpg` so they aren't counted as slides of their own.
+- `"added": true` on a question marks an answer you wrote yourself (shown with a small tag).
+- `"noOptions": true`: never give this slide's questions multiple-choice options.
 - `"studyOnly": true`: optional; for a photo where the answer is written on the picture (an answer card, a typed caption). It then appears in Study mode only, never in an exam.
 - In **Easy Money**, "Identify…" questions get 4 options automatically: the right answer plus 3 others from the **same category** first, then the same course, then any course.
   Any question can supply its own options (the answer must be one of them):
