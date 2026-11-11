@@ -18,7 +18,7 @@ const BANK_DIR = path.join(ROOT, 'bank');
 const OUT_FILE = path.join(ROOT, 'bank.js');
 const IMAGE_EXT = new Set(['.jpg', '.jpeg', '.png', '.webp', '.gif', '.bmp', '.avif']);
 const COURSE_ORDER = ['Histopathology', 'Chemical Pathology', 'MMP', 'Haematology'];
-const VALID_TYPES = new Set(['slide', 'pot', 'photomicrograph', 'case', 'apparatus', 'diagram', 'viva', 'drill', 'cue card']);
+const VALID_TYPES = new Set(['slide', 'pot', 'photomicrograph', 'specimen', 'case', 'apparatus', 'diagram', 'viva', 'drill', 'cue card']);
 
 /**
  * "hepatocellular-carcinoma" -> "Hepatocellular carcinoma"
