@@ -60,6 +60,8 @@
       <label class="check study-only"><input type="checkbox" id="study-shuffle"> Shuffle in Study mode</label>
       <label class="check dist-only"><input type="checkbox" id="answer-boxes"> Type answers on screen
         <span class="note">(off = write them on paper, like the real exam; answers are shown at the end)</span></label>
+      <label class="check"><input type="checkbox" id="auto-slide"> Change photos automatically
+        <span class="note">(when a specimen has several photos; off = use the arrows)</span></label>
     </div>
 
     <div class="card">
@@ -131,7 +133,7 @@
         <div id="img-loading" class="img-msg">Loading…</div>
         <button type="button" id="var-prev" class="var-nav left" title="Previous photo (↑)" aria-label="Previous photo" hidden>‹</button>
         <button type="button" id="var-next" class="var-nav right" title="Next photo (↓)" aria-label="Next photo" hidden>›</button>
-        <div id="var-bar" class="var-bar" hidden><span id="var-dots" class="var-dots"></span><span id="var-count" class="var-count"></span></div>
+        <div id="var-bar" class="var-bar" hidden><span id="var-dots" class="var-dots"></span><span id="var-count" class="var-count"></span><button type="button" id="var-auto" class="var-auto" aria-pressed="false">▶ Auto</button></div>
         <div id="block-toast" class="block-toast" hidden></div>
         <div id="pause-overlay" class="pause-overlay" hidden>
           <div>Paused</div>

@@ -246,6 +246,14 @@ body.screen-exam { background: var(--x-bg); color: var(--x-ink); overscroll-beha
 .var-dots i { width: 7px; height: 7px; border-radius: 50%; background: rgba(255, 255, 255, .35); transition: width .3s var(--ease), background .3s; }
 .var-dots i.on { width: 20px; border-radius: 4px; background: #fff; }
 .var-count { font-size: .76rem; font-weight: 700; color: rgba(255, 255, 255, .85); font-variant-numeric: tabular-nums; }
+.var-auto {
+  min-height: 0; padding: 3px 10px; border-radius: 999px; font-size: .72rem; font-weight: 800;
+  background: rgba(255, 255, 255, .1); color: rgba(255, 255, 255, .85); border: 1px solid rgba(255, 255, 255, .2);
+}
+.var-auto:hover:not(:disabled) { border-color: rgba(255, 255, 255, .5); }
+.var-auto.on { background: var(--eo); border-color: var(--eo); color: #fff; }
+#auto-slide + .note, .check .note { flex-basis: 100%; margin: 0 0 0 30px; }
+.check:has(.note) { flex-wrap: wrap; }
 
 .zoom-ctrls { position: absolute; right: max(10px, env(safe-area-inset-right)); top: 10px; display: flex; gap: 6px; z-index: 3; }
 .zoom-ctrls button {

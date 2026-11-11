@@ -128,6 +128,7 @@
     perCourse: {}, // course name -> number | 'all'
     order: 'mixed', // 'mixed' = practicals shuffled together, 'blocks' = one practical after another
     answerBoxes: false, // Distinction: off = write answers on paper (default, like the real exam)
+    autoSlide: false, // photos of a specimen change by themselves every 4 s (off by default)
   };
   const settings = Object.assign({}, defaults, load(KEY_SETTINGS, {}));
   const knownCats = new Set();
@@ -168,6 +169,7 @@
     $('#beep-toggle').checked = !!settings.beep;
     $('#study-shuffle').checked = !!settings.studyShuffle;
     $('#answer-boxes').checked = !!settings.answerBoxes;
+    $('#auto-slide').checked = !!settings.autoSlide;
   }
 
   function renderCourses() {
@@ -650,6 +652,11 @@
     const n = V.list.length;
     $('#var-prev').hidden = $('#var-next').hidden = $('#var-bar').hidden = n < 2;
     if (n < 2) return;
+    const ab = $('#var-auto');
+    ab.classList.toggle('on', !!settings.autoSlide);
+    ab.setAttribute('aria-pressed', !!settings.autoSlide);
+    ab.textContent = settings.autoSlide ? '❚❚ Auto' : '▶ Auto';
+    ab.title = settings.autoSlide ? 'Stop changing photos automatically' : 'Change photos automatically every 4 seconds';
     $('#var-dots').innerHTML = V.list.map((_, k) => `<i class="${k === V.i ? 'on' : ''}"></i>`).join('');
     $('#var-count').textContent = `Photo ${V.i + 1} of ${n}`;
   }
@@ -687,7 +694,7 @@
 
   function startAuto() {
     stopAuto();
-    if (V.list.length < 2) return;
+    if (V.list.length < 2 || !settings.autoSlide) return;
     V.timer = setInterval(() => {
       if (Z.s > 1 || T.paused || pointers.size || document.hidden || !$('#confirm').hidden) return;
       if (Date.now() - V.lastUser < AUTO_MS * 1.5) return; // let the student look after switching by hand
@@ -696,6 +703,13 @@
   }
   function stopAuto() { if (V.timer) clearInterval(V.timer); V.timer = null; }
 
+  $('#var-auto').addEventListener('click', () => {
+    settings.autoSlide = !settings.autoSlide;
+    persistSettings();
+    V.lastUser = 0;
+    renderVarBar();
+    if (settings.autoSlide) startAuto(); else stopAuto();
+  });
   $('#var-prev').addEventListener('click', () => userPhoto(-1));
   $('#var-next').addEventListener('click', () => userPhoto(1));
 
@@ -1365,6 +1379,7 @@
     settings.order = b.dataset.order; persistSettings(); renderCounts(); renderSummary();
   }));
   $('#answer-boxes').addEventListener('change', (e) => { settings.answerBoxes = e.target.checked; persistSettings(); });
+  $('#auto-slide').addEventListener('change', (e) => { settings.autoSlide = e.target.checked; persistSettings(); });
   $('#review-pics').addEventListener('change', (e) => { $('#review').classList.toggle('no-pics', !e.target.checked); });
   $('#history-clear').addEventListener('click', () => {
     askConfirm('Delete all past session scores?', 'Delete').then((yes) => { if (yes) { save(KEY_HISTORY, []); renderHistory(); } });
