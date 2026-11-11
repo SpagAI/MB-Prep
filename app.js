@@ -5,7 +5,13 @@
   // ---------------------------------------------------------------- constants
   const BANK = (window.BANK && Array.isArray(window.BANK.items)) ? window.BANK : { items: [], courses: [] };
   const ITEMS = BANK.items;
-  const COURSES = BANK.courses || [];
+  // The four practicals always show, even before any pictures are added for one of them.
+  const STANDARD_COURSES = ['Histopathology', 'Chemical Pathology', 'MMP', 'Haematology'];
+  const COURSES = (BANK.courses || []).slice();
+  for (const name of STANDARD_COURSES) if (!COURSES.some((c) => c.name === name)) COURSES.push({ name, categories: [] });
+  COURSES.sort((a, b) => ((STANDARD_COURSES.indexOf(a.name) + 1) || 99) - ((STANDARD_COURSES.indexOf(b.name) + 1) || 99));
+  const courseCount = (c) => c.categories.reduce((s, x) => s + x.count, 0);
+  const FILLED = COURSES.filter((c) => courseCount(c) > 0);
   const TIMER_STEPS = [0, 5, 10, 15, 20, 25, 30, 40, 45, 50, 60, 75, 90, 105, 120, 150, 180, 210, 240, 300,
     360, 420, 480, 540, 600, 720, 900, 1200, 1500, 1800];
   const TIMER_PRESETS = [0, 15, 30, 45, 60, 90, 120, 300, 600, 1800];
@@ -126,7 +132,7 @@
   const settings = Object.assign({}, defaults, load(KEY_SETTINGS, {}));
   const knownCats = new Set();
   for (const c of COURSES) for (const cat of c.categories) knownCats.add(catKey(c.name, cat.name));
-  let selCourses = new Set(settings.courses.filter((c) => COURSES.some((x) => x.name === c)));
+  let selCourses = new Set(settings.courses.filter((c) => FILLED.some((x) => x.name === c)));
   let selCats = new Set(settings.cats.filter((k) => knownCats.has(k)));
   if (!['study', 'easy', 'distinction'].includes(settings.mode)) settings.mode = 'easy';
   if (!TIMER_STEPS.includes(settings.timer)) settings.timer = nearestStep(settings.timer);
@@ -173,8 +179,9 @@
       b.className = 'course-btn' + (selCourses.has(c.name) ? ' on' : '') + (n ? '' : ' empty');
       b.style.setProperty('--c', courseColor(c.name));
       b.setAttribute('aria-pressed', selCourses.has(c.name));
-      b.innerHTML = `${esc(c.name)}<small>${plural(n, 'image')}</small>`;
-      b.addEventListener('click', () => toggleCourse(c.name));
+      b.innerHTML = `${esc(c.name)}<small>${n ? plural(n, 'image') : 'No pictures yet'}</small>`;
+      if (n) b.addEventListener('click', () => toggleCourse(c.name));
+      else { b.disabled = true; b.title = 'No pictures for this course yet: add its files to the bank'; }
       wrap.appendChild(b);
     }
     const panels = $('#category-panels');
@@ -213,7 +220,7 @@
       });
       panels.appendChild(panel);
     }
-    const allCourses = COURSES.length && COURSES.every((c) => selCourses.has(c.name));
+    const allCourses = FILLED.length && FILLED.every((c) => selCourses.has(c.name));
     $('#courses-all').textContent = allCourses ? 'Clear all' : 'Select all';
   }
 
@@ -1219,11 +1226,11 @@
 
   // ---------------------------------------------------------------- home events
   $('#courses-all').addEventListener('click', () => {
-    const all = COURSES.every((c) => selCourses.has(c.name));
+    const all = FILLED.every((c) => selCourses.has(c.name));
     if (all) {
       selCourses.clear();
     } else {
-      for (const c of COURSES) {
+      for (const c of FILLED) {
         if (!selCourses.has(c.name)) { selCourses.add(c.name); selectAllCats(c.name); }
       }
     }
